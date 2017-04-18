@@ -10,15 +10,21 @@ The main components of the boards are Hamamatsu [C12666MA](http://www.hamamatsu.
 
 The spectrometers are driven by hardware timer clock in both cases. The spectrometers readouts are performed via external 16bit SPI based ADC. The board also has four selectable precision voltage references (2.5V, 3.0V, 4.096V and 5V) to allow more precise ADC range fitting to the spectrometer output.
 
-For the purpose of the measurements, the board provides two external trigger pins - the spectrometer driver makes use of one of them at a time of measurement (the trigger signal can be offset and issued prior to the measurement with configurable delay). For the goals of this project, the pins are labelled `TRG_FLASH` and `TRG_CAMERA` in the code for flash and digital camera triggering accordingly.
+For the purpose of the measurements, the board provides two external trigger pins (only one can be selected and used at a time). The spectrometer driver makes use of the selected trigger pin at the time of the measurement (the trigger signal can be offset and issued prior to the measurement with configurable delay). For the goals of this project, these pins are labelled `TRG_FLASH` and `TRG_CAMERA` in the code for flash and digital camera triggering accordingly.
 
-The spectrometer drivers also have configurable black subtraction mode that could be used to eliminate spectrometer offset voltage (that appears to be nonlinear). This can be configured to capture black frame output manually, before or after the main measurement. When black levels are captured the spectrometer readings are adjusted accordingly.
+The spectrometer drivers also have configurable black subtraction mode that could be used to eliminate spectrometer offset voltage (that appears to be nonlinear). This can be configured in one of the following ways:
 
-The selected reference voltage, gain (if supported) and black mode are stored in EEPROM and persist even when board is powered off.
+- to capture black frame output manually 
+- to capture black frame output before the main measurement
+- to capture black frame output after the main measurement
+
+When black levels are captured the spectrometer readings are adjusted accordingly.
+
+The selected reference voltage, gain (if supported) and black mode are stored in EEPROM and persist even when the board is powered off.
 
 Calibration data provided by Hamamatsu for each sensor (used to determine wavelengths mapping for each sensor) needs to be provided to the driver to get accurate readings. If omitted, the calibration data from my own sensors is used as a fall-back.
 
-All the readings are captured as floating point values in 0..1 range. By default readings from the driver are also bandpass corrected (this is configurable) using Stearns and Stearns (1988) bandpass correction method.
+All the readings are captured as floating point values in 0..1 range. By default, readings from the driver are also bandpass corrected (this is configurable) using Stearns and Stearns (1988) bandpass correction method.
 
 
 Below are individual specifics of each firmware.
@@ -35,7 +41,7 @@ The spectrometer is driven by hardware clock with 100KHz (default) or 59KHz freq
 
 In addition to selectable voltage references, the firmware can enable/disable spectrometer supported gain. This may allow even tighter usage of ADC range.
 
-The firmware is implemented partially outside of Particle Photon HAL - using direct hardware and ports access for performance critical parts (ADC readouts). The readouts are triggered by software pin interrupt - C12666MA (unlike C12880MA) lacks hardware support for triggering signal ready.
+The firmware is implemented partially outside of Particle Photon HAL - using direct hardware and ports access for performance critical parts (timer, soft pin interrupts, ADC readouts). The readouts are triggered by software pin interrupt - C12666MA (unlike C12880MA) lacks hardware support for signal ready trigger.
 
 ## Spectron 2 - С12880MA firmware
 
@@ -49,7 +55,7 @@ The spectrometer is driven by hardware clock with 156KHz (default) or 200KHz fre
 
 The C12880MA does not support gain but is a lot more sensitive than C12666MA. Using selectable reference voltages will allow better use of ADC range.
 
-The firmware is implemented substantially outside of Particle Photon HAL - using direct hardware and ports access for performance critical parts (timer, pin interrupts, ADC readouts). The readouts are triggered by C12880MA hardware TRG pin which provide more reliable read timings.
+The firmware is implemented substantially outside of Particle Photon HAL - using direct hardware and ports access for performance critical parts (GPIO pin access, timer, pin interrupts, ADC readouts). The readouts are triggered by C12880MA hardware TRG pin which allows more reliable read timings.
 
 ## Spectron 2 - LCD demo firmware
 
@@ -60,9 +66,9 @@ This code was tested on early stages of the project development but is not activ
 
 # Motor Board Firmware
 
-[This firmware](Motors) implements the functionality for the Spectron2 Motors board that is operating stepper motor and rotary encoder to control monochromator wavelength selection. The [TI DRV8884](http://www.ti.com/product/DRV8884) is used to drive stepper motor and LS7083 quadrature converter chip to interface with rotary encoder. 
+[This firmware](Motors) implements the functionality for the Spectron2 Motors board that is operating stepper motor and rotary encoder to control monochromator wavelength selection. The [TI DRV8884](http://www.ti.com/product/DRV8884) is used to drive stepper motor and [LS7083](http://www.omnipro.net/lsi-csi/LS7083-S) quadrature converter chip to interface with rotary encoder. 
 
-The DRV8884 allows to fine tune stepper parameters to suit each and every application. All of these stepper parameters as well as position details are stored in EEPROM and persist even when board is powered off. The expectations are that these particular boards will be tuned up (for example using Particle cloud functions via Particle console) for a specific application and all the setup will be persisted.
+The DRV8884 allows to fine tune stepper parameters to suit each and every application. All of these stepper parameters as well as position details are stored in EEPROM and persist even when the board is powered off. The expectations are that these particular boards will be tuned up (for example using Particle cloud functions via Particle console) for a specific application and all the board parameters will be set up and stored at that stage.
 
 The firmware is designed to operate in terms of target device position and its lower and upper limits. The logical position is mapped into physical steps for controlling stepper. All position parameters (current position, lower and upper position limits) are also persisted in the EEPROM. For this specific application, current position reflects wavelength selected on monochromator with upper and lower limits designating the spectral range that monochromator can control.
 
