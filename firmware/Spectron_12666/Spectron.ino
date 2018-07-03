@@ -65,6 +65,9 @@ enum trigger_t {
     TRIGGER_FLASH  = 1
 };
 
+// Board type identifier
+static String BOARD_TYPE = "SPEC2_SPECTROMETER";
+
 // Calibration data for my sensor 15F00163
 // specify the real one for your sensor here
 #define CALIBRATION_15F00163   323.3668711,2.384682045,-5.995865297E-4,-8.602293347E-6,1.840343099E-8,-1.424592223E-11
@@ -290,6 +293,7 @@ void setup()
     spec.setIntTime(500 _mSEC);   // 0.5s to start with
 
     // register Particle variables
+    initSuccess = initSuccess && Particle.variable("BOARD_TYPE",   BOARD_TYPE);
     initSuccess = initSuccess && Particle.variable("spCal",        specCalibration);
     initSuccess = initSuccess && Particle.variable("spNumPixels",  specPixels);
     initSuccess = initSuccess && Particle.variable("spTrgType",    specTriggerType);

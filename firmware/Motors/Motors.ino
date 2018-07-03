@@ -51,7 +51,8 @@ DRV8884 motor(NFAULT,
               UP_CLK,
               DOWN_CLK);
 
-// Particle exposed variables
+// Board type identifier
+static String BOARD_TYPE = "SPEC2_MOTOR";
 
 // initialisation success
 bool initSuccess = true;
@@ -202,9 +203,10 @@ void setup()
     motor.begin();
 
     // register Particle variable
+    bool initSuccess = Particle.variable("BOARD_TYPE", BOARD_TYPE);
 
     // register Particle functions
-    bool initSuccess =           Particle.function("drvMoveToPos", drvMoveToPosition);
+    initSuccess = initSuccess && Particle.function("drvMoveToPos", drvMoveToPosition);
     initSuccess = initSuccess && Particle.function("drvSetStPPos", drvSetStepsPerPosition);
     initSuccess = initSuccess && Particle.function("drvSetLmts",   drvSetLimits);
     initSuccess = initSuccess && Particle.function("drvResetPos",  drvResetPos);

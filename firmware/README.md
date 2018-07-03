@@ -2,7 +2,7 @@
 
 This contains all the firmware (and extra example) running on the hardware boards used in this project.
 
-All main board components (Hamamatsu [C12666MA](http://www.hamamatsu.com/jp/en/C12666MA.html), [C12880MA](http://www.hamamatsu.com/jp/en/C12880MA.html) and [TI DRV8884](http://www.ti.com/product/DRV8884)) are implemented as standalone driver objects. This makes it easier to some degree to reuse them on other Particle Photon based projects.
+All main board components (Hamamatsu [C12666MA](http://www.hamamatsu.com/jp/en/C12666MA.html), [C12880MA](http://www.hamamatsu.com/jp/en/C12880MA.html) and [TI DRV8884](http://www.ti.com/product/DRV8884)) are implemented as standalone driver objects. This makes it easier to some degree to re-use them on other Particle Photon based projects.
 
 # Spectron 2 Board Fimwares
 
@@ -66,9 +66,27 @@ This code was tested on early stages of the project development but is not activ
 
 # Motor Board Firmware
 
-[This firmware](Motors) implements the functionality for the Spectron2 Motors board that is operating stepper motor and rotary encoder to control monochromator wavelength selection. The [TI DRV8884](http://www.ti.com/product/DRV8884) is used to drive stepper motor and [LS7083](http://www.omnipro.net/lsi-csi/LS7083-S) quadrature converter chip to interface with rotary encoder. 
+[This firmware](Motors) implements functionality for the Spectron 2 Motors board that is operating stepper motor and rotary encoder to control monochromator wavelength selection. The [TI DRV8884](http://www.ti.com/product/DRV8884) is used to drive stepper motor and [LS7083](http://www.omnipro.net/lsi-csi/LS7083-S) quadrature converter chip to interface with rotary encoder. 
 
 The DRV8884 allows to fine tune stepper parameters to suit each and every application. All of these stepper parameters as well as position details are stored in EEPROM and persist even when the board is powered off. The expectations are that these particular boards will be tuned up (for example using Particle cloud functions via Particle console) for a specific application and all the board parameters will be set up and stored at that stage.
 
-The firmware is designed to operate in terms of target device position and its lower and upper limits. The logical position is mapped into physical steps for controlling stepper. All position parameters (current position, lower and upper position limits) are also persisted in the EEPROM. For this specific application, current position reflects wavelength selected on monochromator with upper and lower limits designating the spectral range that monochromator can control.
+The firmware is designed to operate in terms of target device position and its lower and upper limits. The logical po
+sition is mapped into physical steps for controlling stepper. All position parameters (current position, lower and upper position limits) are also persisted in the EEPROM. For this specific application, current position reflects wavelength selected on monochromator with upper and lower limits designating the spectral range that monochromator can control.
+
+
+# LED Light Source
+
+[This firmware](LED) implements functionality for Spectron 2 LED Lightsource board using [Yuji VTC 5600K wide spectrum LEDs](https://store.yujiintl.com/collections/vtc-series/products/vtc-series-high-cri-cob-led-135l-pack-5-pcs?variant=45426214099). 
+
+The firmware allows controlling the output brigntness of two LED channels independently (each channel up to 4095 brightness levels) or simultaneously, enabling/disabling LED output as well as doing timed exposures.
+
+It is used as a main light source for Spectron 2 project. 
+
+
+# Pulsed Xenon Light Source
+
+[This firmware](Xenon) implements functionality for Spectron 2 Xenon Lightsource board using [Excelitas FX-116x series lamps](http://www.excelitas.com/Pages/Product/1100-Series-Family.aspx) on [Excelitas/Perkin-Elmer trigger module FYD‐1150‐B](http://www.excelitas.com/Downloads/DTS_1100Series_Trigger_Modules.pdf) driven by [Excelitas/Perkin-Elmer PS-11xx power supply](http://www.excelitas.com/Downloads/DTS_1100Series_Power_Supplies.pdf). 
+
+The firmware allows controlling the output brigntness (average output power) of the flash lamp, or varying voltage or trigger rate directly (within allowed lamp  specifications), enabling/disabling Xenon Lamp output as well as doing timed exposures.
+
 

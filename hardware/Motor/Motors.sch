@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.7.0">
+<eagle version="8.0.1">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -9,6 +9,20 @@
 <grid distance="0.1" unitdist="inch" unit="inch" style="lines" multiple="1" display="no" altdistance="0.01" altunitdist="inch" altunit="inch"/>
 <layers>
 <layer number="1" name="Top" color="4" fill="1" visible="no" active="no"/>
+<layer number="2" name="Route2" color="1" fill="3" visible="no" active="no"/>
+<layer number="3" name="Route3" color="4" fill="3" visible="no" active="no"/>
+<layer number="4" name="Route4" color="1" fill="4" visible="no" active="no"/>
+<layer number="5" name="Route5" color="4" fill="4" visible="no" active="no"/>
+<layer number="6" name="Route6" color="1" fill="8" visible="no" active="no"/>
+<layer number="7" name="Route7" color="4" fill="8" visible="no" active="no"/>
+<layer number="8" name="Route8" color="1" fill="2" visible="no" active="no"/>
+<layer number="9" name="Route9" color="4" fill="2" visible="no" active="no"/>
+<layer number="10" name="Route10" color="1" fill="7" visible="no" active="no"/>
+<layer number="11" name="Route11" color="4" fill="7" visible="no" active="no"/>
+<layer number="12" name="Route12" color="1" fill="5" visible="no" active="no"/>
+<layer number="13" name="Route13" color="4" fill="5" visible="no" active="no"/>
+<layer number="14" name="Route14" color="1" fill="6" visible="no" active="no"/>
+<layer number="15" name="Route15" color="4" fill="6" visible="no" active="no"/>
 <layer number="16" name="Bottom" color="1" fill="1" visible="no" active="no"/>
 <layer number="17" name="Pads" color="2" fill="1" visible="no" active="no"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="no" active="no"/>
@@ -414,28 +428,6 @@ RECOMMENDED ON ALL LAYERS</text>
 <text x="3.302" y="0.254" size="0.6096" layer="51" font="vector">GROUND PLANE
 AND SIGNAL KEEP OUT
 RECOMMENDED ON ALL LAYERS</text>
-</package>
-<package name="POWERSUPPLY_DC-21MM">
-<description>DC 2.1mm Jack</description>
-<wire x1="-2.8575" y1="-6.35" x2="-5.08" y2="-6.35" width="0.127" layer="21"/>
-<wire x1="-5.08" y1="-6.35" x2="-5.08" y2="-6.0325" width="0.127" layer="21"/>
-<wire x1="2.54" y1="-6.35" x2="3.9116" y2="-6.35" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="-6.35" x2="3.9116" y2="3.6576" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="3.6576" x2="3.9116" y2="7.1374" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="7.1374" x2="-5.08" y2="7.1374" width="0.127" layer="21"/>
-<wire x1="-5.08" y1="7.1374" x2="-5.08" y2="-0.635" width="0.127" layer="21"/>
-<wire x1="-5.0546" y1="3.6576" x2="3.9116" y2="3.6576" width="0.127" layer="21"/>
-<pad name="1" x="-5.08" y="-3.3528" drill="1.3" diameter="4" shape="octagon" rot="R90"/>
-<pad name="2" x="-0.0762" y="-6.35" drill="1.3" diameter="4" shape="octagon"/>
-<pad name="3" x="-0.0762" y="-0.3556" drill="1.3" diameter="4" shape="octagon" first="yes"/>
-<pad name="4" x="-5.08" y="-4.1148" drill="1.3"/>
-<pad name="5" x="-5.08" y="-2.5908" drill="1.3"/>
-<pad name="6" x="-0.8382" y="-0.3556" drill="1.3"/>
-<pad name="7" x="0.6858" y="-0.3556" drill="1.3"/>
-<pad name="8" x="-0.8382" y="-6.35" drill="1.3"/>
-<pad name="9" x="0.6858" y="-6.35" drill="1.3"/>
-<text x="6.35" y="-6.35" size="1.778" layer="25" ratio="5" rot="R90">&gt;NAME</text>
-<text x="8.89" y="-6.35" size="1.778" layer="27" ratio="5" rot="R90">&gt;VALUE</text>
 </package>
 <package name="085CS_1AR">
 <description>&lt;b&gt;Aluminum electrolytic capacitors&lt;/b&gt; reflow soldering&lt;p&gt;
@@ -9264,17 +9256,6 @@ This is the mechanical footprint for a #4 phillips button head screw. Use the ke
 <pin name="WKP" x="-17.78" y="7.62" length="middle"/>
 <text x="-4.826" y="-3.302" size="2.032" layer="97">Photon</text>
 </symbol>
-<symbol name="POWERSUPPLY_DC21PWR">
-<wire x1="-10.16" y1="5.08" x2="10.16" y2="5.08" width="0.254" layer="94"/>
-<wire x1="10.16" y1="5.08" x2="10.16" y2="-5.08" width="0.254" layer="94"/>
-<wire x1="10.16" y1="-5.08" x2="-10.16" y2="-5.08" width="0.254" layer="94"/>
-<wire x1="-10.16" y1="-5.08" x2="-10.16" y2="5.08" width="0.254" layer="94"/>
-<pin name="1" x="-5.08" y="-10.16" length="middle" direction="pwr" rot="R90"/>
-<pin name="2" x="5.08" y="-10.16" length="middle" direction="pwr" rot="R90"/>
-<pin name="3" x="-15.24" y="0" length="middle" direction="pwr"/>
-<text x="-10.16" y="7.62" size="1.27" layer="94">&gt;NAME</text>
-<text x="-10.16" y="5.08" size="1.27" layer="94">&gt;VALUE</text>
-</symbol>
 <symbol name="GND">
 <wire x1="-1.905" y1="0" x2="1.905" y2="0" width="0.254" layer="94"/>
 <wire x1="-1.27" y1="-0.762" x2="1.27" y2="-0.762" width="0.254" layer="94"/>
@@ -9397,23 +9378,6 @@ This is the mechanical footprint for a #4 phillips button head screw. Use the ke
 <connect gate="G$1" pin="VBAT" pad="#22 22 @22"/>
 <connect gate="G$1" pin="VIN" pad="#1 1 @1"/>
 <connect gate="G$1" pin="WKP" pad="#5 5 @5"/>
-</connects>
-<technologies>
-<technology name=""/>
-</technologies>
-</device>
-</devices>
-</deviceset>
-<deviceset name="POWERSUPPLY_DC21MM" prefix="DC">
-<gates>
-<gate name="G$1" symbol="POWERSUPPLY_DC21PWR" x="0" y="0"/>
-</gates>
-<devices>
-<device name="X" package="POWERSUPPLY_DC-21MM">
-<connects>
-<connect gate="G$1" pin="1" pad="1"/>
-<connect gate="G$1" pin="2" pad="2"/>
-<connect gate="G$1" pin="3" pad="3"/>
 </connects>
 <technologies>
 <technology name=""/>
@@ -14650,6 +14614,63 @@ Standard 8.5x11 US Letter frame</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="WEIDMULLER-PM5.08_2_90BLK">
+<description>&lt;b&gt; Developed By element14 &lt;/b&gt;&lt;p&gt; 
+
+For feedback and Technical support please contact reach from below:
+&lt;br&gt; Tech Support e-mail  : &lt;a href="mailto:CAD_Tech@element14.com"&gt;CAD_Tech@element14.com&lt;/a&gt;
+&lt;br&gt;Community website: &lt;a href=http://www.element14.com/community/community/knode/cad_tools/cadsoft_eagle/eagle_cad_libraries&gt;
+EAGLE CAD Libraries on element14&lt;/a&gt;</description>
+<packages>
+<package name="WEIDMULLER_PM5.08_2">
+<pad name="1" x="-2.54" y="0" drill="1.3" diameter="2.54" shape="square"/>
+<pad name="2" x="2.54" y="0" drill="1.3" diameter="2.54"/>
+<wire x1="-5.08" y1="3.81" x2="5.08" y2="3.81" width="0.127" layer="51"/>
+<wire x1="5.08" y1="3.81" x2="5.08" y2="-4.19" width="0.127" layer="51"/>
+<wire x1="5.08" y1="-4.19" x2="-5.08" y2="-4.19" width="0.127" layer="51"/>
+<wire x1="-5.08" y1="-4.19" x2="-5.08" y2="3.81" width="0.127" layer="51"/>
+<wire x1="-5.08" y1="3.81" x2="5.08" y2="3.81" width="0.2" layer="21"/>
+<wire x1="5.08" y1="3.81" x2="5.08" y2="-4.19" width="0.2" layer="21"/>
+<wire x1="5.08" y1="-4.19" x2="-5.08" y2="-4.19" width="0.2" layer="21"/>
+<wire x1="-5.08" y1="-4.19" x2="-5.08" y2="3.81" width="0.2" layer="21"/>
+</package>
+</packages>
+<symbols>
+<symbol name="PM5.08/2/90BLK">
+<text x="2.54" y="1.778" size="1.778" layer="95">&gt;NAME</text>
+<text x="2.54" y="-5.842" size="1.778" layer="96">&gt;VALUE</text>
+<rectangle x1="2.286" y1="-0.254" x2="3.81" y2="0.254" layer="94"/>
+<rectangle x1="2.286" y1="-2.794" x2="3.81" y2="-2.286" layer="94"/>
+<pin name="1" x="0" y="0" visible="pin" length="short" direction="pas"/>
+<pin name="2" x="0" y="-2.54" visible="pin" length="short" direction="pas"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="PM5.08/2/90BLK" prefix="J">
+<description>TERMINAL BLOCK, SIDE ENTRY, 2WAY</description>
+<gates>
+<gate name="A" symbol="PM5.08/2/90BLK" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="WEIDMULLER_PM5.08_2">
+<connects>
+<connect gate="A" pin="1" pad="1"/>
+<connect gate="A" pin="2" pad="2"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="MPN" value="PM5.08/2/90 BLK" constant="no"/>
+<attribute name="OC_FARNELL" value="1131855 " constant="no"/>
+<attribute name="OC_NEWARK" value="26M1980 " constant="no"/>
+<attribute name="PACKAGE" value="TH-R/A" constant="no"/>
+<attribute name="SUPPLIER" value="WEIDMULLER " constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -14662,7 +14683,6 @@ Standard 8.5x11 US Letter frame</description>
 <parts>
 <part name="U2" library="Spectron2" deviceset="PHOTON" device="_WITH_HEADERS"/>
 <part name="U1" library="TI-DRV8884" deviceset="DRV8884PWPR" device=""/>
-<part name="DC1" library="Spectron2" deviceset="POWERSUPPLY_DC21MM" device="X" value="Power Connector"/>
 <part name="GND1" library="Spectron2" deviceset="GND" device=""/>
 <part name="GND6" library="Spectron2" deviceset="GND" device=""/>
 <part name="IC1" library="Spectron" deviceset="MC33269ST*" device=""/>
@@ -14706,6 +14726,7 @@ Standard 8.5x11 US Letter frame</description>
 <part name="C11" library="Spectron2" deviceset="C-EU" device="C0805" value="0.1uF"/>
 <part name="GND10" library="Spectron2" deviceset="GND" device=""/>
 <part name="R7" library="Spectron2" deviceset="R-EU_" device="R0805" value="30K"/>
+<part name="J1" library="WEIDMULLER-PM5.08_2_90BLK" deviceset="PM5.08/2/90BLK" device="" value="+12V"/>
 </parts>
 <sheets>
 <sheet>
@@ -14714,9 +14735,8 @@ Standard 8.5x11 US Letter frame</description>
 <instances>
 <instance part="U2" gate="G$1" x="33.02" y="30.48" rot="MR0"/>
 <instance part="U1" gate="A" x="137.16" y="25.4"/>
-<instance part="DC1" gate="G$1" x="33.02" y="-12.7"/>
 <instance part="GND1" gate="1" x="119.38" y="2.54" rot="MR0"/>
-<instance part="GND6" gate="1" x="17.78" y="-25.4"/>
+<instance part="GND6" gate="1" x="35.56" y="-25.4"/>
 <instance part="IC1" gate="G$1" x="51.562" y="-40.64" smashed="yes" rot="MR0">
 <attribute name="NAME" x="52.324" y="-41.91" size="1.778" layer="95" rot="MR0"/>
 <attribute name="VALUE" x="56.388" y="-32.512" size="1.778" layer="96" rot="MR0"/>
@@ -14833,23 +14853,27 @@ Standard 8.5x11 US Letter frame</description>
 <attribute name="NAME" x="72.3646" y="16.256" size="1.778" layer="95" rot="R180"/>
 <attribute name="VALUE" x="79.248" y="16.256" size="1.778" layer="96" rot="R180"/>
 </instance>
+<instance part="J1" gate="A" x="27.94" y="-22.86" smashed="yes" rot="R180">
+<attribute name="NAME" x="26.416" y="-15.494" size="1.778" layer="95" rot="R180"/>
+<attribute name="VALUE" x="18.542" y="-20.066" size="1.778" layer="96" rot="R180"/>
+</instance>
 </instances>
 <busses>
 </busses>
 <nets>
 <net name="VIN" class="0">
 <segment>
-<wire x1="38.1" y1="-22.86" x2="48.26" y2="-22.86" width="0.1524" layer="91"/>
-<pinref part="DC1" gate="G$1" pin="2"/>
-<wire x1="48.26" y1="-22.86" x2="48.26" y2="-15.24" width="0.1524" layer="91"/>
+<wire x1="48.26" y1="-20.32" x2="48.26" y2="-15.24" width="0.1524" layer="91"/>
 <label x="49.022" y="-14.224" size="1.778" layer="95"/>
 <pinref part="IC1" gate="G$1" pin="IN"/>
 <pinref part="C8" gate="G$1" pin="+"/>
 <wire x1="68.58" y1="-35.56" x2="59.182" y2="-35.56" width="0.1524" layer="91"/>
-<wire x1="68.58" y1="-35.56" x2="68.58" y2="-22.86" width="0.1524" layer="91"/>
-<wire x1="68.58" y1="-22.86" x2="48.26" y2="-22.86" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="-35.56" x2="68.58" y2="-20.32" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="-20.32" x2="48.26" y2="-20.32" width="0.1524" layer="91"/>
 <junction x="68.58" y="-35.56"/>
-<junction x="48.26" y="-22.86"/>
+<junction x="48.26" y="-20.32"/>
+<pinref part="J1" gate="A" pin="2"/>
+<wire x1="27.94" y1="-20.32" x2="48.26" y2="-20.32" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="U1" gate="A" pin="VM"/>
@@ -14877,14 +14901,6 @@ Standard 8.5x11 US Letter frame</description>
 <wire x1="119.38" y1="10.16" x2="119.38" y2="7.62" width="0.1524" layer="91"/>
 <junction x="119.38" y="7.62"/>
 <wire x1="119.38" y1="5.08" x2="119.38" y2="7.62" width="0.1524" layer="91"/>
-</segment>
-<segment>
-<pinref part="DC1" gate="G$1" pin="3"/>
-<pinref part="DC1" gate="G$1" pin="1"/>
-<wire x1="17.78" y1="-12.7" x2="17.78" y2="-22.86" width="0.1524" layer="91"/>
-<pinref part="GND6" gate="1" pin="GND"/>
-<wire x1="17.78" y1="-22.86" x2="27.94" y2="-22.86" width="0.1524" layer="91"/>
-<junction x="17.78" y="-22.86"/>
 </segment>
 <segment>
 <pinref part="IC1" gate="G$1" pin="GND/ADJ"/>
@@ -14954,6 +14970,11 @@ Standard 8.5x11 US Letter frame</description>
 <pinref part="C11" gate="G$1" pin="1"/>
 <pinref part="GND10" gate="1" pin="GND"/>
 <wire x1="-45.72" y1="60.96" x2="-45.72" y2="68.58" width="0.1524" layer="91"/>
+</segment>
+<segment>
+<pinref part="GND6" gate="1" pin="GND"/>
+<pinref part="J1" gate="A" pin="1"/>
+<wire x1="35.56" y1="-22.86" x2="27.94" y2="-22.86" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="+5V" class="0">

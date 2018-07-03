@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.7.0">
+<eagle version="8.0.1">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -9,6 +9,20 @@
 <grid distance="0.0393700787" unitdist="inch" unit="inch" style="lines" multiple="1" display="yes" altdistance="0.1" altunitdist="mm" altunit="mm"/>
 <layers>
 <layer number="1" name="Top" color="4" fill="1" visible="yes" active="yes"/>
+<layer number="2" name="Route2" color="1" fill="3" visible="no" active="no"/>
+<layer number="3" name="Route3" color="4" fill="3" visible="no" active="no"/>
+<layer number="4" name="Route4" color="1" fill="4" visible="no" active="no"/>
+<layer number="5" name="Route5" color="4" fill="4" visible="no" active="no"/>
+<layer number="6" name="Route6" color="1" fill="8" visible="no" active="no"/>
+<layer number="7" name="Route7" color="4" fill="8" visible="no" active="no"/>
+<layer number="8" name="Route8" color="1" fill="2" visible="no" active="no"/>
+<layer number="9" name="Route9" color="4" fill="2" visible="no" active="no"/>
+<layer number="10" name="Route10" color="1" fill="7" visible="no" active="no"/>
+<layer number="11" name="Route11" color="4" fill="7" visible="no" active="no"/>
+<layer number="12" name="Route12" color="1" fill="5" visible="no" active="no"/>
+<layer number="13" name="Route13" color="4" fill="5" visible="no" active="no"/>
+<layer number="14" name="Route14" color="1" fill="6" visible="no" active="no"/>
+<layer number="15" name="Route15" color="4" fill="6" visible="no" active="no"/>
 <layer number="16" name="Bottom" color="1" fill="1" visible="yes" active="yes"/>
 <layer number="17" name="Pads" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="yes" active="yes"/>
@@ -210,28 +224,6 @@ by exp-lbrs.ulp</description>
 <vertex x="0.5" y="-1"/>
 <vertex x="-0.5" y="0"/>
 </polygon>
-</package>
-<package name="POWERSUPPLY_DC-21MM">
-<description>DC 2.1mm Jack</description>
-<wire x1="-2.8575" y1="-6.35" x2="-5.08" y2="-6.35" width="0.127" layer="21"/>
-<wire x1="-5.08" y1="-6.35" x2="-5.08" y2="-6.0325" width="0.127" layer="21"/>
-<wire x1="2.54" y1="-6.35" x2="3.9116" y2="-6.35" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="-6.35" x2="3.9116" y2="3.6576" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="3.6576" x2="3.9116" y2="7.1374" width="0.127" layer="21"/>
-<wire x1="3.9116" y1="7.1374" x2="-5.08" y2="7.1374" width="0.127" layer="21"/>
-<wire x1="-5.08" y1="7.1374" x2="-5.08" y2="-0.635" width="0.127" layer="21"/>
-<wire x1="-5.0546" y1="3.6576" x2="3.9116" y2="3.6576" width="0.127" layer="21"/>
-<pad name="1" x="-5.08" y="-3.3528" drill="1.3" diameter="4" shape="octagon" rot="R90"/>
-<pad name="2" x="-0.0762" y="-6.35" drill="1.3" diameter="4" shape="octagon"/>
-<pad name="3" x="-0.0762" y="-0.3556" drill="1.3" diameter="4" shape="octagon" first="yes"/>
-<pad name="4" x="-5.08" y="-4.1148" drill="1.3"/>
-<pad name="5" x="-5.08" y="-2.5908" drill="1.3"/>
-<pad name="6" x="-0.8382" y="-0.3556" drill="1.3"/>
-<pad name="7" x="0.6858" y="-0.3556" drill="1.3"/>
-<pad name="8" x="-0.8382" y="-6.35" drill="1.3"/>
-<pad name="9" x="0.6858" y="-6.35" drill="1.3"/>
-<text x="6.35" y="-6.35" size="1.778" layer="25" ratio="5" rot="R90">&gt;NAME</text>
-<text x="8.89" y="-6.35" size="1.778" layer="27" ratio="5" rot="R90">&gt;VALUE</text>
 </package>
 <package name="STAND-OFF">
 <description>&lt;b&gt;Stand Off&lt;/b&gt;&lt;p&gt;
@@ -2405,6 +2397,28 @@ You are welcome to use this library for commercial purposes. For attribution, we
 </package>
 </packages>
 </library>
+<library name="WEIDMULLER-PM5.08_2_90BLK">
+<description>&lt;b&gt; Developed By element14 &lt;/b&gt;&lt;p&gt; 
+
+For feedback and Technical support please contact reach from below:
+&lt;br&gt; Tech Support e-mail  : &lt;a href="mailto:CAD_Tech@element14.com"&gt;CAD_Tech@element14.com&lt;/a&gt;
+&lt;br&gt;Community website: &lt;a href=http://www.element14.com/community/community/knode/cad_tools/cadsoft_eagle/eagle_cad_libraries&gt;
+EAGLE CAD Libraries on element14&lt;/a&gt;</description>
+<packages>
+<package name="WEIDMULLER_PM5.08_2">
+<pad name="1" x="-2.54" y="0" drill="1.3" diameter="2.54" shape="square"/>
+<pad name="2" x="2.54" y="0" drill="1.3" diameter="2.54"/>
+<wire x1="-5.08" y1="3.81" x2="5.08" y2="3.81" width="0.127" layer="51"/>
+<wire x1="5.08" y1="3.81" x2="5.08" y2="-4.19" width="0.127" layer="51"/>
+<wire x1="5.08" y1="-4.19" x2="-5.08" y2="-4.19" width="0.127" layer="51"/>
+<wire x1="-5.08" y1="-4.19" x2="-5.08" y2="3.81" width="0.127" layer="51"/>
+<wire x1="-5.08" y1="3.81" x2="5.08" y2="3.81" width="0.2" layer="21"/>
+<wire x1="5.08" y1="3.81" x2="5.08" y2="-4.19" width="0.2" layer="21"/>
+<wire x1="5.08" y1="-4.19" x2="-5.08" y2="-4.19" width="0.2" layer="21"/>
+<wire x1="-5.08" y1="-4.19" x2="-5.08" y2="3.81" width="0.2" layer="21"/>
+</package>
+</packages>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -2737,10 +2751,7 @@ Please make sure your boards conform to these design rules.</description>
 <element name="D2" library="Spectron" package="SOD123" value="PMEG2010ER" x="17.018" y="12.192" smashed="yes" rot="R180">
 <attribute name="NAME" x="16.299" y="13.446" size="0.8128" layer="25"/>
 </element>
-<element name="DC1" library="Spectron" package="POWERSUPPLY_DC-21MM" value="POWERSUPPLY_DC21MMX" x="5.08" y="11.23" smashed="yes" rot="R90">
-<attribute name="NAME" x="10.16" y="13.77" size="1.016" layer="25" ratio="5" rot="R180"/>
-</element>
-<element name="FRAME1" library="SparkFun-Aesthetics" package="CREATIVE_COMMONS" value="FRAME-LEDGER" x="-2.54" y="-1.27"/>
+<element name="FRAME1" library="SparkFun-Aesthetics" package="CREATIVE_COMMONS" value="FRAME-LEDGER" x="-0.04" y="0.23"/>
 <element name="JP1" library="SparkFun-Connectors" package="1X08" value="C12666/C12880" x="38.1" y="19.685" smashed="yes" rot="MR90">
 <attribute name="PROD_ID" value="CONN-08438" x="38.1" y="19.685" size="1.778" layer="28" rot="MR90" display="off"/>
 <attribute name="NAME" x="38.8112" y="17.0688" size="0.8128" layer="26" ratio="10" rot="MR0"/>
@@ -2929,14 +2940,19 @@ Please make sure your boards conform to these design rules.</description>
 <attribute name="NAME" x="44.035" y="20.57" size="0.8128" layer="26" rot="MR0"/>
 <attribute name="VALUE" x="45.74" y="19.235" size="1.27" layer="28" rot="MR270"/>
 </element>
+<element name="J1" library="WEIDMULLER-PM5.08_2_90BLK" package="WEIDMULLER_PM5.08_2" value="+5V" x="9" y="8.6" rot="R90">
+<attribute name="SUPPLIER" value="WEIDMULLER " x="9" y="8.6" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="OC_FARNELL" value="1131855 " x="9" y="8.6" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="PACKAGE" value="TH-R/A" x="9" y="8.6" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="MPN" value="PM5.08/2/90 BLK" x="9" y="8.6" size="1.778" layer="27" rot="R90" display="off"/>
+<attribute name="OC_NEWARK" value="26M1980 " x="9" y="8.6" size="1.778" layer="27" rot="R90" display="off"/>
+</element>
 </elements>
 <signals>
 <signal name="VBAT">
 <contactref element="U16" pad="22"/>
 </signal>
 <signal name="GND">
-<contactref element="DC1" pad="1"/>
-<contactref element="DC1" pad="3"/>
 <contactref element="U8" pad="5"/>
 <contactref element="U8" pad="4"/>
 <contactref element="C26" pad="2"/>
@@ -3187,6 +3203,7 @@ Please make sure your boards conform to these design rules.</description>
 <via x="16.035" y="33.055" extent="1-16" drill="0.3302" diameter="0.1778"/>
 <via x="19.035" y="35.055" extent="1-16" drill="0.3302" diameter="0.1778"/>
 <via x="21.035" y="35.055" extent="1-16" drill="0.3302" diameter="0.1778"/>
+<contactref element="J1" pad="1"/>
 </signal>
 <signal name="3.3V">
 <contactref element="U13" pad="1"/>
@@ -3262,10 +3279,6 @@ Please make sure your boards conform to these design rules.</description>
 <contactref element="U10" pad="3"/>
 <contactref element="C29" pad="2"/>
 <contactref element="U16" pad="1"/>
-<contactref element="D2" pad="C"/>
-<contactref element="U15" pad="3"/>
-<contactref element="D1" pad="A"/>
-<wire x1="18.918" y1="12.192" x2="18.918" y2="13.721" width="1.27" layer="1"/>
 <wire x1="18.918" y1="13.721" x2="17.78" y2="15.24" width="1.27" layer="1"/>
 <wire x1="17.78" y1="15.24" x2="7.62" y2="15.24" width="1.27" layer="1"/>
 <wire x1="7.62" y1="15.24" x2="5.318" y2="15.24" width="1.27" layer="1"/>
@@ -3320,6 +3333,9 @@ Please make sure your boards conform to these design rules.</description>
 <vertex x="8.509" y="23.368"/>
 </polygon>
 <via x="6.223" y="23.495" extent="1-16" drill="0.3302" diameter="0.1778"/>
+<contactref element="D2" pad="C"/>
+<contactref element="U15" pad="3"/>
+<contactref element="D1" pad="A"/>
 </signal>
 <signal name="N$2">
 <contactref element="U4" pad="1"/>
@@ -4533,20 +4549,20 @@ Please make sure your boards conform to these design rules.</description>
 <via x="52.705" y="7.493" extent="1-16" drill="0.3302" diameter="0.1778"/>
 </signal>
 <signal name="N$11">
-<contactref element="DC1" pad="2"/>
 <contactref element="D2" pad="A"/>
 <polygon width="0.1524" layer="1" thermals="no">
 <vertex x="15.875" y="13.081"/>
-<vertex x="10.668" y="13.081"/>
-<vertex x="9.525" y="11.938"/>
-<vertex x="9.525" y="10.414"/>
-<vertex x="10.668" y="9.271"/>
+<vertex x="7.668" y="13.081"/>
+<vertex x="6.525" y="11.938"/>
+<vertex x="6.525" y="10.414"/>
+<vertex x="7.668" y="9.271"/>
 <vertex x="12.319" y="9.271"/>
 <vertex x="13.335" y="10.287"/>
 <vertex x="13.589" y="10.414"/>
 <vertex x="14.732" y="11.557"/>
 <vertex x="15.875" y="11.557"/>
 </polygon>
+<contactref element="J1" pad="2"/>
 </signal>
 <signal name="N$8">
 <contactref element="U4" pad="3"/>

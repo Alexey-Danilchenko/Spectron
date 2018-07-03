@@ -2,7 +2,7 @@
 
 Spectron - an open source project for measuring and obtaining digital devices spectral sensitivity curves
 
-Copyright (C) 2014-2017 [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
+Copyright (C) 2014-2018 [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
 
 *This is a work in progress*
 
@@ -18,7 +18,7 @@ The second generation of Spectron board was produced with the more accurate spec
 
 The spectral sensitivity measurements of a selected device are fairly simple in principle:
 
-1. light source of high intensity is passed via monochromator
+1. broadband light source of high intensity is passed via monochromator
 2. monochromator output is fed to the integrating sphere 
 3. integrating sphere output is simultaneously captured by target device and measured spectrally
 4. steps 1-3 repeated through selected spectral range in discrete steps (5nm steps over 380-720nm range for example)
@@ -26,11 +26,13 @@ The spectral sensitivity measurements of a selected device are fairly simple in 
 
 # Hardware
 
-The hardware for the above concept consists of the 50ws flash circuit, Mini-Chrom MC1-02 monochromator, 2.5" integrating sphere and two controller boards. The Spectron board is a hardware driving Hamamatsu [C12666MA](http://www.hamamatsu.com/jp/en/C12666MA.html) or [C12880MA](http://www.hamamatsu.com/jp/en/C12880MA.html) spectrometer sensor to capture spectral readings from the integrating sphere and initiate synchronised readings from target device. The Spectron Motors board is a hardware for controlling monochromator positioning and moving through the selected spectral range.
+The hardware for the above concept consists of the light source (LED or pulsed  Xenon), Mini-Chrom MC1-02 monochromator, 2.5" integrating sphere and several distinct components. The Spectrometer component is a hardware driving Hamamatsu [C12666MA](http://www.hamamatsu.com/jp/en/C12666MA.html) or [C12880MA](http://www.hamamatsu.com/jp/en/C12880MA.html) spectrometer sensor to capture spectral readings from the integrating sphere and initiate synchronised readings from target device. The Stepper Motors component is a hardware for automating monochromator operation (esentially converting manually controlled monochromator to scanning monochromator, turning broadband light source into tunable source). The Light Source component is a hardware for controlling broadband light source that provides input for the monochromator.
 
-Both boards use [Particle Photon boards](https://www.particle.io/products/hardware/photon-wifi-dev-kit) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud.
+With the precise intensity control of the LED light source, the whole system is essentially providing tunable monochromatic light source covering the entire visible range.
 
-Both type of boards are of course usable for standalone projects - see corresponding sections for details.
+All hardware component boards use [Particle Photon controllers](https://www.particle.io/products/hardware/photon-wifi-dev-kit) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud (the latter is more responsive).
+
+Boards used for all individual components can be of course utilised for standalone projects - see corresponding sections for details.
 
 For more details please refer to individual parts of the project below:
 

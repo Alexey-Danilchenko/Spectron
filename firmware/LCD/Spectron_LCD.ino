@@ -95,7 +95,7 @@ unsigned long lastActive = 0;
 // draw the main screen
 void drawScreen()
 {
-    tft.spiInit();
+    tft.3Init();
     tft.fillScreen(ILI9340_BLACK);
     tft.setRotation(3);    // orientation landscape
 
