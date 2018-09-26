@@ -38,15 +38,24 @@ SYSTEM_THREAD(ENABLED);
 #define MAX_XL_TIMED_EXPOSURE 120000
 #define MAX_DAQ_CODE          4095
 
+// --------------------------------------------------------
 // Xenon lamp parameters
-#define MIN_XL_VOLTAGE              400
-#define MAX_XL_VOLTAGE              1000
-#define XL_MAIN_CAP_UF              0.5
-#define XL_MAX_POWER_WT             20
-#define XL_TRG_PULSE_WIDTH_US       10
-#define XL_MAX_FLASH_RATE_HZ        300
-#define XL_MIN_FLASH_RATE_HZ        10   // to prevent flicker
-#define XL_MIN_PREF_FLASH_RATE_HZ   50   // min rate acceptable for given voltage
+// These need some adjusting for each particular lamp type.
+//  
+// Parameters as set here were tested for Excelitas FX-1163
+// lamp mounted in metal cooling jacket.
+// --------------------------------------------------------
+#define MIN_XL_VOLTAGE              400     // Min lamp voltage
+#define MAX_XL_VOLTAGE              1000    // Max lamp voltage
+#define XL_MAIN_CAP_UF              0.5     // Lamp charge capacitor value for energy calculations
+#define XL_RATED_POWER_WT           20      // Lamp rated power from the specs
+#define XL_MAX_POWER_WT             40      // Allowed/acceptable overshoot for lamp power: if lamp is
+                                            //    in the cooling jacket it can sustain more power through it
+#define XL_TRG_PULSE_WIDTH_US       10      // Trigger pulse width in microseconds
+#define XL_MAX_FLASH_RATE_HZ        300     // Lamp max trigger rate per second from specs
+#define XL_MIN_FLASH_RATE_HZ        10      // Minimal trigger rate to prevent flickering
+#define XL_MIN_PREF_FLASH_RATE_HZ   50      // Minimal trigger rate acceptable for given voltage. This is
+                                            // only used for calculation of the values when setting brightness
 
 // Xenon lamp functions
 #define XLampFlashEnegy(voltage)   ((XL_MAIN_CAP_UF * voltage * voltage)/2000000)
@@ -57,8 +66,9 @@ SYSTEM_THREAD(ENABLED);
 #define EEPROM_XL_EXPOSURE_TIME   4
 #define EEPROM_XL_VOLTAGE         8
 #define EEPROM_XL_TRG_RATE        12
+#define EEPROM_XL_MAX_POWER       16
 
-#define EEPROM_FREE_ADDR          16  // free address for application usage
+#define EEPROM_FREE_ADDR          20  // free address for application usage
 
 // DAC Commands
 #define CMD_NOP                   0
@@ -77,11 +87,11 @@ static String BOARD_TYPE = "SPEC2_XENON";
 // Variables
 static Timer expTimer_(2000, expFinished);           // Lamp exposure timer
 static bool xlampIsOn_ = false;                      // current lamp state
+static int32_t xlampMaxPower_ = XL_RATED_POWER_WT;   // lamp max power
 static int32_t xlampBrightness_ = MAX_XL_BRIGHTNESS; // lamp voltage (defines flash brightness)
 static int32_t xlampVoltage_ = 0;                    // lamp voltage (defines flash brightness)
 static int32_t xlampTrgRate_ = 0;                    // lamp triggering rate
 static int32_t exposureTime_ = 2000;                 // lamp exposure time in ms, 0 - manual on/off
-
 
 // Calculate and set Xenon lamp parameters for given brightness
 // This will favour higher voltage over frequency until XL_MIN_PREF_FLASH_RATE_HZ
@@ -89,7 +99,7 @@ static int32_t exposureTime_ = 2000;                 // lamp exposure time in ms
 void setXLampParamsForBrightness()
 {
     // calculate lamp energy relative to brightness
-    double xlampPwr = (double)XL_MAX_POWER_WT * xlampBrightness_ / MAX_XL_BRIGHTNESS;
+    double xlampPwr = (double)xlampMaxPower_ * xlampBrightness_ / MAX_XL_BRIGHTNESS;
 
     // loop through voltages from the highest to the lowest until
     // we have acceptable rates
@@ -117,7 +127,7 @@ void setXLampParamsForBrightness()
 
         // adjust brightness
         xlampPwr = flashRate * XLampFlashEnegy(voltage);
-        xlampBrightness_ = xlampPwr * MAX_XL_BRIGHTNESS / XL_MAX_POWER_WT;
+        xlampBrightness_ = xlampPwr * MAX_XL_BRIGHTNESS / xlampMaxPower_;
     }
 
     // set lamp parameters in one go
@@ -130,10 +140,10 @@ void setXLampParamsForVoltage()
 {
     double flashPwr = xlampTrgRate_ * XLampFlashEnegy(xlampVoltage_);
 
-    if (flashPwr > XL_MAX_POWER_WT)
+    if (flashPwr > xlampMaxPower_)
     {
         // exceeded max lamp power - adjust flash rate
-        xlampTrgRate_ = XL_MAX_POWER_WT / XLampFlashEnegy(xlampVoltage_);
+        xlampTrgRate_ = xlampMaxPower_ / XLampFlashEnegy(xlampVoltage_);
         if (xlampTrgRate_ > XL_MAX_FLASH_RATE_HZ)
             xlampTrgRate_ = XL_MAX_FLASH_RATE_HZ;
         else if (xlampTrgRate_ < XL_MIN_FLASH_RATE_HZ)
@@ -142,7 +152,7 @@ void setXLampParamsForVoltage()
     }
 
     // recalculate the brightness
-    xlampBrightness_ = flashPwr * MAX_XL_BRIGHTNESS / XL_MAX_POWER_WT;
+    xlampBrightness_ = flashPwr * MAX_XL_BRIGHTNESS / xlampMaxPower_;
 }
 
 // sets voltage for given flash rate and updates brightness
@@ -150,10 +160,10 @@ void setXLampParamsForTrgRate()
 {
     double flashPwr = xlampTrgRate_ * XLampFlashEnegy(xlampVoltage_);
 
-    if (flashPwr > XL_MAX_POWER_WT)
+    if (flashPwr > xlampMaxPower_)
     {
         // exceeded max lamp power - adjust voltage
-        xlampVoltage_ = XLampFlashVoltage(XL_MAX_POWER_WT/xlampTrgRate_);
+        xlampVoltage_ = XLampFlashVoltage((double)xlampMaxPower_/xlampTrgRate_);
         if (xlampVoltage_ > MAX_XL_VOLTAGE)
             xlampVoltage_ = MAX_XL_VOLTAGE;
         else if (xlampVoltage_ < MIN_XL_VOLTAGE)
@@ -162,7 +172,7 @@ void setXLampParamsForTrgRate()
     }
 
     // recalculate the brightness
-    xlampBrightness_ = flashPwr * MAX_XL_BRIGHTNESS / XL_MAX_POWER_WT;
+    xlampBrightness_ = flashPwr * MAX_XL_BRIGHTNESS / xlampMaxPower_;
 }
 
 // setup DAC
@@ -220,6 +230,12 @@ void initXLamp()
         // EEPROM was empty - set to manual exposure time
         exposureTime_ = 0;
 
+    // read xlampMaxPower details from EPROM
+    EEPROM.get(EEPROM_XL_MAX_POWER, xlampMaxPower_);
+    if (xlampMaxPower_ <= 0 || xlampMaxPower_ > XL_MAX_POWER_WT)
+        // EEPROM was empty - set to manual exposure time
+        xlampMaxPower_ = XL_RATED_POWER_WT;
+
     // get voltage and triggering rate if they are valid
     EEPROM.get(EEPROM_XL_VOLTAGE,  xlampVoltage_);
     EEPROM.get(EEPROM_XL_TRG_RATE, xlampTrgRate_);
@@ -248,7 +264,7 @@ void xlampOn()
 
         // calculate and start the PWM
         analogWrite(TRIGGER_PWM,
-                    (xlampTrgRate_ * XL_TRG_PULSE_WIDTH_US * 65536) / 1000000,
+                    (xlampTrgRate_ * XL_TRG_PULSE_WIDTH_US * 65535) / 1000000,
                     xlampTrgRate_);
 
         // start the timer if timed
@@ -466,6 +482,61 @@ int xlampSetTriggerRate(String paramStr)
     return 0;
 }
 
+// Sets the lamp max power (Watts) directly. Be very careful if it exceeds
+// manufacturer's specified one
+int xlampSetMaxLampPower(String paramStr)
+{
+    int xlampMaxPower = -1;
+
+    // only allow change when lamp is not running
+    // or running in untimed mode
+    if (xlampIsOn_ && exposureTime_ > 0)
+        return -1;
+
+    // all uppercase
+    paramStr.trim().toUpperCase();
+
+    if (paramStr.length() == 0)
+        return -1;
+
+    // parse the brightness string
+    if (paramStr.equals("MAX"))
+        xlampMaxPower = XL_MAX_POWER_WT;
+    else if (paramStr.equals("RATED") || paramStr.length()==0)
+        xlampMaxPower = XL_RATED_POWER_WT;
+    else
+        xlampMaxPower = paramStr.toInt();
+
+    if (xlampMaxPower <=0 || xlampMaxPower > XL_MAX_POWER_WT)
+        return -1;
+
+    if (xlampMaxPower_ != xlampMaxPower)
+    {
+        xlampMaxPower_ = xlampMaxPower;
+
+        bool xlampWasOn = xlampIsOn_;
+        if (xlampIsOn_)
+            xlampOff(false);
+
+        // recalculate params and update the DAC
+        setXLampParamsForBrightness();
+
+        // write all parameters to EEPROM
+        EEPROM.put(EEPROM_XL_MAX_POWER, xlampMaxPower_);
+        EEPROM.put(EEPROM_XL_BRIGHTNESS, xlampBrightness_);
+        EEPROM.put(EEPROM_XL_VOLTAGE, xlampVoltage_);
+        EEPROM.put(EEPROM_XL_TRG_RATE, xlampTrgRate_);
+
+        // update DAC
+        setupDAC();
+
+        if (xlampWasOn)
+            xlampOn();
+    }
+
+    return 0;
+}
+
 int xlampTrigger(String paramStr)
 {
     paramStr.trim().toUpperCase();
@@ -506,10 +577,12 @@ void setup()
     initSuccess = initSuccess && Particle.function("XLSetBrghtns", xlampSetBrightness);
     initSuccess = initSuccess && Particle.function("XLSetVoltage", xlampSetVoltage);
     initSuccess = initSuccess && Particle.function("XLSetTrgRate", xlampSetTriggerRate);
+    initSuccess = initSuccess && Particle.function("XLSetMaxPowr", xlampSetMaxLampPower);
     initSuccess = initSuccess && Particle.function("XLTrigger",    xlampTrigger);
 
     // register Particle variables
     Particle.variable("BOARD_TYPE",   BOARD_TYPE);
+    Particle.variable("XLMaxPower",   xlampMaxPower_);
     Particle.variable("XLExpTime",    exposureTime_);
     Particle.variable("XLBrightness", xlampBrightness_);
     Particle.variable("XLVoltage",    xlampVoltage_);
