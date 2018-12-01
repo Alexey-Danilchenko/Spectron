@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/MainForm">
+    <file>images/Qt-logo-small.png</file>
+  </qresource>
+</RCC>

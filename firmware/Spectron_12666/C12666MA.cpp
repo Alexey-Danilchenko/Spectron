@@ -6,7 +6,7 @@
  *                 are tuned to run as fast as possible on Photon
  *                 hardware (STM32F205) at the price of portability.
  *
- *  Copyright 2015-2017 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2015-2018 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,16 +32,29 @@
 #define SPI_SCK     A3
 
 // EEPROM addresses
-#define EEPROM_GAIN_ADDR         0
-#define EEPROM_ADC_REF_ADDR      4
-#define EEPROM_BLACK_MODE_ADDR   8
+#define EEPROM_GAIN_ADDR              EEPROM_C12666_BASE_ADDR
+#define EEPROM_ADC_REF_ADDR           EEPROM_C12666_BASE_ADDR+4
+#define EEPROM_MEASURE_TYPE_ADDR      EEPROM_C12666_BASE_ADDR+8
+#define EEPROM_INTEGRATION_TIME       EEPROM_C12666_BASE_ADDR+12
+#define EEPROM_TRG_MEAS_DELAY         EEPROM_C12666_BASE_ADDR+16
+#define EEPROM_SAT_VOLTAGE_HIGH_GAIN  EEPROM_C12666_BASE_ADDR+20
+#define EEPROM_SAT_VOLTAGE_NO_GAIN    EEPROM_C12666_BASE_ADDR+24
+#define EEPROM_CALIBRATION_COEF_1     EEPROM_C12666_BASE_ADDR+28
+#define EEPROM_CALIBRATION_COEF_2     EEPROM_C12666_BASE_ADDR+36
+#define EEPROM_CALIBRATION_COEF_3     EEPROM_C12666_BASE_ADDR+44
+#define EEPROM_CALIBRATION_COEF_4     EEPROM_C12666_BASE_ADDR+52
+#define EEPROM_CALIBRATION_COEF_5     EEPROM_C12666_BASE_ADDR+60
+#define EEPROM_CALIBRATION_COEF_6     EEPROM_C12666_BASE_ADDR+68
 
-#define EEPROM_FREE_ADDR         12  // free address for application usage
+// Saturation voltage limits from Hamamatsu C12666MA spec sheet
+#define MIN_SAT_VOLTAGE_HIGH_GAIN  2.3
+#define MAX_SAT_VOLTAGE_HIGH_GAIN  4.0
+#define MIN_SAT_VOLTAGE_NO_GAIN    1.4
+#define MAX_SAT_VOLTAGE_NO_GAIN    2.7
 
 //
-// State flow with no dark reading:
-//     Lead -> Reset -> Reset2 -> Integration -> Read -> Trail -> Stop
-// triggering external action happens at the beginning of Integration
+// State flow with single read integration cycle:
+//    Lead -> Reset -> Reset2 -> Integration -> Read -> Trail -> Stop
 //
 enum spec_state_t {
     SPEC_LEAD,
@@ -77,6 +90,10 @@ enum spec_state_t {
     #define SPEC_CLK_TICK_TIMER  50
 #endif
 
+// Macro to convert ticks to uSec
+#define ticksToUsec(x) ((x)*SPEC_CLK_TICK_TIMER/TIMER_US_FACTOR)
+#define uSecToTicks(x) ((x)*TIMER_US_FACTOR/SPEC_CLK_TICK_TIMER)
+
 // Max ADC conversion value - 16 bit
 #define ADC_MAX_VALUE   UINT16_MAX
 
@@ -87,21 +104,19 @@ enum spec_state_t {
 //           for 256 pixels train is 4*256+6=1030 CLK cycles
 //      Numbers below are in ticks: 2 ticks (h/l and l/h) per clock cycle
 //      even numbers only!
-#define TICKS_PER_PIXEL    8              // Sensor spec - ticks per single pixel readout
-#define MIN_INTEG_TIME_US  1000UL         // 1ms minimum integration time to ensure Integration state will always be used
-#define MAX_INTEG_TIME_US  10000000UL     // 10s maximum integration time
-#define DEF_LEAD_TICKS     64             // anything greater than 38 seems OK up to 200KHz clock, room temperature
-#define TRAIL_TICKS        12             // anything greater than 2 seems OK up to 200KHz clock, room temperature
-#define READ_TICKS         (SPEC_PIXELS*TICKS_PER_PIXEL + TRAIL_TICKS)
-#define EXT_TRG_CYCLES     50             // duration of ext TRG pin high signal
+#define TICKS_PER_PIXEL      8              // Sensor spec - ticks per single pixel readout
+#define MIN_INTEG_TIME_US    1000UL         // 1ms minimum integration time to ensure Integration state will always be used
+#define MAX_INTEG_TIME_US    10000000UL     // 10s maximum integration time
+#define DEF_LEAD_TICKS       64             // anything greater than 38 seems OK up to 200KHz clock, room temperature
+#define TRAIL_TICKS          12             // anything greater than 2 seems OK up to 200KHz clock, room temperature
+#define READ_TICKS           (SPEC_PIXELS*TICKS_PER_PIXEL + TRAIL_TICKS)
+#define EXT_TRG_HIGH_TICKS   uSecToTicks(1000)  // duration of ext TRG pin high signal - 1mSec
 
-// Integration ticks - change as needed, integration time is formed by INTEG_TICKS + READ_TICKS
-static uint32_t INTEG_TICKS = 1000;
+// Integration ticks set to minimum by default - integration time is
+// formed by INTEG_TICKS + READ_TICKS
+static uint32_t INTEG_TICKS = uSecToTicks(MIN_INTEG_TIME_US);
 
-// External trigger ticks from the start of the spectro state mechine
-static uint32_t EXT_TRG_TICKS = EXT_TRG_CYCLES + DEF_LEAD_TICKS + READ_TICKS + READ_TICKS;
-
-// Lead ticks - this can change if EXT_TRG_TICKS may need to get larger
+// Lead ticks - this can be larger to accomodate external trigger delay
 static uint32_t LEAD_TICKS = DEF_LEAD_TICKS;
 
 // Timing arrays and correspinding bitmasks
@@ -116,6 +131,9 @@ static uint8_t specRead[READ_TICKS];
 // ADC conversion delay as per AD7980 spec sheet - CS mode-3 wire without Busy ind
 static const uint32_t adcConvTimeTicks  = (71*System.ticksPerMicrosecond())/100;
 
+// ADC reference voltages
+static const float adcVoltages[] = { 2.5, 3.0, 4.096, 5.0 };
+
 // spectrometer states and trigger variables
 static volatile bool         measuringData_ = false;
 static volatile bool         timerOn = false;
@@ -124,7 +142,7 @@ static volatile bool         specDataReady = false;    // trigger for ADC conver
 static uint8_t               specCLK = LOW;            // current clock pin state
 static uint8_t               specST  = LOW;            // current ST pin state
 static uint32_t              specCounter = 0;          // counter
-static uint32_t              extTrgCounter = 0;        // ext trigger counter
+static uint32_t              extTRGCounter = 0;        // ext trigger counter
 static uint32_t* volatile    specData = 0;             // pointer to current data for ADC reads
 static uint8_t* volatile     specDataCounter = 0;      // pointer to current data for ADC reads counter
 
@@ -133,6 +151,7 @@ uint8_t adcPinCNV   = NO_PIN;
 uint8_t specPinCLK  = NO_PIN;
 uint8_t specPinST   = NO_PIN;
 uint8_t extPinTRG   = NO_PIN;
+uint8_t extPinLIGHT = NO_PIN;
 
 // spectrometer trigger pin - hardware access
 uint16_t specPinTRG = 0;    STM32_Pin_Info* specPinTRG_Info = 0;
@@ -142,10 +161,6 @@ uint16_t specPinTRG = 0;    STM32_Pin_Info* specPinTRG_Info = 0;
 
 // set pin fast
 #define pinSetVal(pin,val) if (val) pinSetFast(pin); else pinResetFast(pin)
-
-// C12666MA default calibration - taken from my sensor 15F00163
-const double DEF_CALIBRATION[] =
-    {323.3668711, 2.384682045, -5.995865297E-4, -8.602293347E-6, 1.840343099E-8, -1.424592223E-11};
 
 // Static internal sensor readings arrays - these hold
 // aggregated sensor measurements and measurement counts
@@ -437,6 +452,9 @@ void spectroClockInterrupt(void)
                 if (specCounter == READ_TICKS) {
                     specCounter = 0;
                     specState = SPEC_INTEGRATION;
+                    // enable external light if defined
+                    if (extPinLIGHT != NO_PIN)
+                        pinSetFast(extPinLIGHT);
                 }
                 else
                     specST  = specRead[specCounter] & ST_BIT;
@@ -451,7 +469,7 @@ void spectroClockInterrupt(void)
                 }
                 break;
 
-            case SPEC_READ: 
+            case SPEC_READ:
                 if (specRead[specCounter] & READY_BIT)
                 {
                     specDataReady = true;
@@ -477,6 +495,9 @@ void spectroClockInterrupt(void)
                     specState = SPEC_STOP;
                     specCLK = LOW;
                     specST = LOW;
+                    // disable external light if defined
+                    if (extPinLIGHT != NO_PIN)
+                        pinResetFast(extPinLIGHT);
                 }
                 break;
 
@@ -487,20 +508,19 @@ void spectroClockInterrupt(void)
         }
 
         // process trigger
-        if (extTrgCounter)
+        if (extTRGCounter)
         {
-            if (extTrgCounter == EXT_TRG_CYCLES)
+            --extTRGCounter;
+            if (extTRGCounter == EXT_TRG_HIGH_TICKS)
                 pinSetFast(extPinTRG);
-            else if (extTrgCounter == 1)
+            else if (extTRGCounter == 0)
                 pinResetFast(extPinTRG);
-
-            --extTrgCounter;
         }
     }
 }
 
 // start active timer
-void startSpecTimer()
+void startSpecTimer(uint32_t extTrgMeasDelay, bool doExtTriggering)
 {
     TIM_TimeBaseInitTypeDef timerInit = {0};
     NVIC_InitTypeDef nvicInit = {0};
@@ -513,16 +533,44 @@ void startSpecTimer()
 
     // init state
     specCounter = 0;
-    extTrgCounter = EXT_TRG_TICKS;
+
+    // init lead and ext counter states
+    if (doExtTriggering && extPinTRG != NO_PIN && extTrgMeasDelay > 0)
+    {
+        uint32_t delayTimeTicks = uSecToTicks(extTrgMeasDelay);
+
+        // making it even
+        delayTimeTicks &= ~1;
+
+        // calculate LEAD_TICKS
+        if (delayTimeTicks > DEF_LEAD_TICKS + READ_TICKS + READ_TICKS)
+            LEAD_TICKS = delayTimeTicks - READ_TICKS - READ_TICKS;
+        else
+            LEAD_TICKS = DEF_LEAD_TICKS;
+
+        // set trigger cycles
+        extTRGCounter = EXT_TRG_HIGH_TICKS + LEAD_TICKS + READ_TICKS + READ_TICKS - delayTimeTicks;
+    }
+    else
+    {
+        extTRGCounter = 0;
+        LEAD_TICKS = DEF_LEAD_TICKS;
+    }
+
     specState = SPEC_LEAD;
     specDataReady = false;
 
     // initial and next values of CLK and ST
-    pinResetFast(specPinCLK);  // CLK initially low
-    pinSetFast(specPinST);     // ST  initially high
-    pinResetFast(extPinTRG);   // Ext trigger initially low
     specST  = HIGH;
     specCLK = CLK_HIGH;
+    pinResetFast(specPinCLK);  // CLK initially low
+    pinSetFast(specPinST);     // ST  initially high
+
+    // reset triggers
+    if (extPinTRG != NO_PIN)
+        pinResetFast(extPinTRG);   // Ext trigger initially low
+    if (extPinLIGHT != NO_PIN)
+        pinResetFast(extPinLIGHT); // Ext light trigger initially low
 
     // enable TIM7 clock
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM7, ENABLE);
@@ -606,26 +654,34 @@ void stopSpecTimer()
     // reset pins
     pinResetFast(specPinCLK);
     pinResetFast(specPinST);
-    pinResetFast(extPinTRG);
+    if (extPinTRG != NO_PIN)
+        pinResetFast(extPinTRG);
+    if (extPinLIGHT != NO_PIN)
+        pinResetFast(extPinLIGHT);
 
     timerOn = false;
 }
 
 // Constructor
-C12666MA::C12666MA(uint8_t spec_trg, uint8_t spec_eos, uint8_t spec_gain, uint8_t spec_clk, uint8_t spec_st,
-                   uint8_t ext_trg, uint8_t adc_ref_sel1, uint8_t adc_ref_sel2, uint8_t adc_cnv,
-                   const double *calibration)
+C12666MA::C12666MA(uint8_t spec_gain, uint8_t spec_eos, uint8_t spec_trg,
+                   uint8_t spec_clk, uint8_t spec_st, uint8_t adc_ref_sel1,
+                   uint8_t adc_ref_sel2, uint8_t adc_cnv, uint8_t ext_trg,
+                   uint8_t ext_trg_ls, const double *defaultCalibration)
 {
-    spec_trg_ = spec_trg;
-    spec_eos_ = spec_eos;
     spec_gain_ = spec_gain;
+    spec_eos_ = spec_eos;
+    spec_trg_ = spec_trg;
     spec_clk_ = spec_clk;
     spec_st_ = spec_st;
     ext_trg_ = ext_trg;
+    ext_trg_ls_ = ext_trg_ls;
     adc_ref_sel1_ = adc_ref_sel1;
     adc_ref_sel2_ = adc_ref_sel2;
     adc_cnv_ = adc_cnv;
-    calibration_ = (calibration == 0 ? DEF_CALIBRATION : calibration);
+
+    calibration_[0] = calibration_[1] = calibration_[2] = 0;
+    calibration_[3] = calibration_[4] = calibration_[5] = 0;
+
     measuringData_ = false;
     applyBandPassCorrection_ = true;
 
@@ -641,20 +697,69 @@ C12666MA::C12666MA(uint8_t spec_trg, uint8_t spec_eos, uint8_t spec_gain, uint8_
     }
 
     // read saved data and set defaults
+    EEPROM.get(EEPROM_MEASURE_TYPE_ADDR, measurementType_);
+    if (measurementType_ != MEASURE_RELATIVE &&
+        measurementType_ != MEASURE_VOLTAGE &&
+        measurementType_ != MEASURE_ABSOLUTE)
+        // EEPROM was empty
+        measurementType_ = MEASURE_RELATIVE;
+
     EEPROM.get(EEPROM_GAIN_ADDR, gain_);
-    if (gain_ == 0xFFFFFFFF)
+    if (gain_ != NO_GAIN && gain_ != HIGH_GAIN)
         // EEPROM was empty
         gain_ = NO_GAIN;
 
     EEPROM.get(EEPROM_ADC_REF_ADDR, adcRef_);
-    if (adcRef_ == 0xFFFFFFFF)
+    if (adcRef_ != ADC_2_5V   && adcRef_ != ADC_3V  &&
+        adcRef_ != ADC_4_096V && adcRef_ != ADC_5V)
         // EEPROM was empty
         adcRef_ = ADC_5V;
 
-    EEPROM.get(EEPROM_BLACK_MODE_ADDR, blackMode_);
-    if (blackMode_ == 0xFFFFFFFF)
-        // EEPROM was empty
-        blackMode_ = MANUAL_BLACK;
+    uint32_t trgMeasDelayUs = 0;
+    EEPROM.get(EEPROM_TRG_MEAS_DELAY, trgMeasDelayUs);
+    if (trgMeasDelayUs == 0 ||
+        (trgMeasDelayUs >= ticksToUsec(EXT_TRG_HIGH_TICKS)
+         && trgMeasDelayUs < 10000000))  // 10 sec as top limit
+        extTrgMeasDelayUs_ = trgMeasDelayUs;
+
+    uint32_t intTimeTicks = 0;
+    EEPROM.get(EEPROM_INTEGRATION_TIME, intTimeTicks);
+    if (ticksToUsec(intTimeTicks) >= MIN_INTEG_TIME_US
+        && ticksToUsec(intTimeTicks) <= MAX_INTEG_TIME_US)
+        INTEG_TICKS = intTimeTicks;
+    else
+        setIntTime(100 _mSEC, false);
+
+    float satVoltage = 0.0;
+    EEPROM.get(EEPROM_SAT_VOLTAGE_HIGH_GAIN, satVoltage);
+    // check the high gain saturation voltage against Hamamatsu spec limits
+    if (satVoltage >= MIN_SAT_VOLTAGE_HIGH_GAIN
+        && satVoltage <= MAX_SAT_VOLTAGE_HIGH_GAIN)
+        satVoltageHighGain_ = satVoltage;
+    else
+        satVoltageHighGain_ = MIN_SAT_VOLTAGE_HIGH_GAIN;
+
+    EEPROM.get(EEPROM_SAT_VOLTAGE_NO_GAIN, satVoltage);
+    // check the no gain saturation voltage against Hamamatsu spec limits
+    if (satVoltage >= MIN_SAT_VOLTAGE_NO_GAIN
+        && satVoltage <= MAX_SAT_VOLTAGE_NO_GAIN)
+        satVoltageNoGain_ = satVoltage;
+    else
+        satVoltageNoGain_ = MIN_SAT_VOLTAGE_NO_GAIN;
+
+    EEPROM.get(EEPROM_CALIBRATION_COEF_1, calibration_[0]);
+    if (calibration_[0] > 100 && calibration_[0] < 500)  // first coeff should be around 300
+    {
+        EEPROM.get(EEPROM_CALIBRATION_COEF_2, calibration_[1]);
+        EEPROM.get(EEPROM_CALIBRATION_COEF_3, calibration_[2]);
+        EEPROM.get(EEPROM_CALIBRATION_COEF_4, calibration_[3]);
+        EEPROM.get(EEPROM_CALIBRATION_COEF_5, calibration_[4]);
+        EEPROM.get(EEPROM_CALIBRATION_COEF_6, calibration_[5]);
+    }
+    else if (defaultCalibration)
+    {
+        setWavelengthCalibration(defaultCalibration);
+    }
 
     // initialise timing data
     initSpecTimerData();
@@ -682,7 +787,18 @@ bool C12666MA::begin()
     pinMode(spec_gain_,    OUTPUT);
     pinMode(spec_st_,      OUTPUT);
     pinMode(spec_clk_,     OUTPUT);
-    pinMode(ext_trg_,      OUTPUT);
+
+    if (ext_trg_ != NO_PIN)
+    {
+        pinMode(ext_trg_,  OUTPUT);
+        pinResetFast(ext_trg_);
+    }
+
+    if (ext_trg_ls_ != NO_PIN)
+    {
+        pinMode(ext_trg_ls_, OUTPUT);
+        pinResetFast(ext_trg_ls_);
+    }
 
     // setup hardware and fixed pins
     STM32_Pin_Info* PIN_MAP = HAL_Pin_Map();
@@ -696,7 +812,6 @@ bool C12666MA::begin()
     pinResetFast(SPI_SCK);
     pinResetFast(spec_st_);
     pinResetFast(spec_clk_);
-    pinResetFast(ext_trg_);
 
     // Attach update interrupt for TIM7 and TRG pin
     // HAL version of this would be
@@ -726,62 +841,75 @@ bool C12666MA::begin()
     }
 
     // set defaults
-    setBlackMode((black_t)blackMode_, false);
-    setGain((gain_t)gain_, false);
-    setAdcReference((adc_ref_t)adcRef_, false);
+    setGainInternal(gain_);
+    setAdcRefInternal(adcRef_);
 
     // set internal pins
     specPinCLK  = spec_clk_;
     specPinST   = spec_st_;
     adcPinCNV   = adc_cnv_;
-    extPinTRG   = ext_trg_;
-
-    // register particle variables
-    success = success && Particle.variable("spGain",      gain_);
-    success = success && Particle.variable("spADCRef",    adcRef_);
-    success = success && Particle.variable("spBlackMode", blackMode_);
+    extPinTRG   = NO_PIN;
+    extPinLIGHT = NO_PIN;
 
     return success;
+}
+
+// Sets the wavelength calibration coeffiecients. This is comma separated
+// list of 6 values that represent polinomial coefficients. Usually provided
+// by Hamamatsu but can be overriden by user calculated ones.
+void C12666MA::setWavelengthCalibration(const double* wavelengthCal, bool storeInEeprom)
+{
+    if (!wavelengthCal)
+        return;
+
+    calibration_[0] = wavelengthCal[0];
+    calibration_[1] = wavelengthCal[1];
+    calibration_[2] = wavelengthCal[2];
+    calibration_[3] = wavelengthCal[3];
+    calibration_[4] = wavelengthCal[4];
+    calibration_[5] = wavelengthCal[5];
+
+    if (storeInEeprom)
+    {
+        EEPROM.put(EEPROM_CALIBRATION_COEF_1, calibration_[0]);
+        EEPROM.put(EEPROM_CALIBRATION_COEF_2, calibration_[1]);
+        EEPROM.put(EEPROM_CALIBRATION_COEF_3, calibration_[2]);
+        EEPROM.put(EEPROM_CALIBRATION_COEF_4, calibration_[3]);
+        EEPROM.put(EEPROM_CALIBRATION_COEF_5, calibration_[4]);
+        EEPROM.put(EEPROM_CALIBRATION_COEF_6, calibration_[5]);
+    }
 }
 
 // Sets the external trigger to measurement delay time. This defines time interval
 // in uSec that offsets external trigger from the measurement. I.e. external trigger
 // is raised and after this delay the integration and measurement starts.
-void C12666MA::setExtTrgMeasDelay(uint32_t extTrgMeasDelayUs)
+//
+// Specifying negative delay disables external triggering
+void C12666MA::setExtTrgMeasDelay(int32_t extTrgMeasDelayUs, bool storeInEeprom)
 {
-    uint32_t delayTimeTicks = (extTrgMeasDelayUs * TIMER_US_FACTOR) / SPEC_CLK_TICK_TIMER;
-
-    if (delayTimeTicks & 1)
-        --delayTimeTicks;
-
-    // work out if delayfits into current lead + reset + reset2 periods
-    if (delayTimeTicks > DEF_LEAD_TICKS + READ_TICKS + READ_TICKS)
-        LEAD_TICKS = delayTimeTicks - READ_TICKS - READ_TICKS;
-    else
-        LEAD_TICKS = DEF_LEAD_TICKS;
-
-    // set trigger cycles
-    EXT_TRG_TICKS = EXT_TRG_CYCLES + LEAD_TICKS + READ_TICKS + READ_TICKS - delayTimeTicks;
-}
-
-// Sets the trigger pin to specifid one. This could be used to trigger different things
-// with different type of measurements
-void C12666MA::setExtTriggerPin(uint8_t ext_trg)
-{
-    if (measuringData_ || ext_trg == NO_PIN)
+    // no action if timer is on or in measurement
+    if (timerOn)
         return;
 
-    ext_trg_ = ext_trg;
-    extPinTRG = ext_trg_;
-    pinMode(ext_trg_, OUTPUT);
-    pinResetFast(ext_trg_);
+    uint32_t delayTimeTicks = (extTrgMeasDelayUs * TIMER_US_FACTOR) / SPEC_CLK_TICK_TIMER;
+
+    // cannot be less than extr trigger high holding cycles
+    if (delayTimeTicks < EXT_TRG_HIGH_TICKS)
+        delayTimeTicks = EXT_TRG_HIGH_TICKS;
+
+    delayTimeTicks &= ~1;
+
+    extTrgMeasDelayUs_ = extTrgMeasDelayUs < 0 ? 0 : ticksToUsec(delayTimeTicks);
+
+    if (storeInEeprom)
+        EEPROM.put(EEPROM_TRG_MEAS_DELAY, extTrgMeasDelayUs_);
 }
 
 // Set the integration (or sample collection) time, in microseconds
-void C12666MA::setIntTime(uint32_t timeUs)
+void C12666MA::setIntTime(uint32_t timeUs, bool storeInEeprom)
 {
     // no action if timer is on or in measurement
-    if (timerOn || measuringData_)
+    if (timerOn)
         return;
 
     uint32_t intTime = timeUs*TIMER_US_FACTOR;
@@ -802,28 +930,93 @@ void C12666MA::setIntTime(uint32_t timeUs)
 
     // this should never execute but better code defensively
     if (INTEG_TICKS == 0)
-        INTEG_TICKS = MIN_INTEG_TIME_US*TIMER_US_FACTOR / SPEC_CLK_TICK_TIMER;
+        INTEG_TICKS = uSecToTicks(MIN_INTEG_TIME_US);
 
     // even up INTEG_TICKS
     if (INTEG_TICKS & 1)
         INTEG_TICKS++;
+
+    if (storeInEeprom)
+        EEPROM.put(EEPROM_INTEGRATION_TIME, INTEG_TICKS);
 }
 
-// convert aggregated readouts to measurement floating point data
-void processMeasurement(float* measurement)
+// Retrieve currently set integration time
+uint32_t C12666MA::getIntTime()
+{
+    return ticksToUsec(INTEG_TICKS+READ_TICKS);
+}
+
+// Convert aggregated readouts to measurement floating point data
+// and return the max value
+float C12666MA::processMeasurement(float* measurement, measure_t measurementType)
 {
     // Initialize arrays
+    float maxVal = 0.0;
+    float adcRefVoltage = adcVoltages[adcRef_];
+    float satVoltage = (gain_ == HIGH_GAIN) ? satVoltageHighGain_
+                                            : satVoltageNoGain_;
     for (int i=0; i<SPEC_PIXELS; i++)
     {
         measurement[i] = 0.0;
 
         if (dataCounts[i])
-            measurement[i] = (float)data[i]/(float)(dataCounts[i]*ADC_MAX_VALUE);
+        {
+            if (measurementType == MEASURE_VOLTAGE)
+                measurement[i] =
+                    ((float)data[i]*adcRefVoltage)/(float)(dataCounts[i]*ADC_MAX_VALUE);
+            else if (measurementType == MEASURE_ABSOLUTE)
+                measurement[i] =
+                    ((float)data[i]*adcRefVoltage)/(satVoltage*dataCounts[i]*ADC_MAX_VALUE);
+            else
+                measurement[i] =
+                    (float)data[i]/(float)(dataCounts[i]*ADC_MAX_VALUE);
+        }
+
+        if (measurement[i] > maxVal)
+            maxVal = measurement[i];
     }
+
+    return maxVal;
 }
 
-// Take single measurement
-void C12666MA::takeMeasurement()
+// Take spectrometer reading in automatic mode. This does not require
+// integration time. Also as a result of measurement it will set the
+// integration time measured as well as gain and ADC voltage reference
+// (the latter only in some modes). The automatic measurement is tuned to
+// use sensor setup to maximise the output ADC resolution/range.
+//
+// The automatic measurement can be tuned to achieve different results.
+// The behavior of it is controlled controlled by autoType parameter and
+// has the following modes:
+//
+//    AUTO_FOR_SET_REF   - Aims to maximise ADC reading within currently
+//                         set reference voltage. I.e. achieving maximum
+//                         resolution within selected reference voltage or
+//                         saturation limit (whichever is smaller). Only
+//                         gain and integration are changed in this mode.
+//
+//    AUTO_ALL_MIN_INTEG - Aims to maximise ADC reading across all ADC
+//                         reference voltages whilst achieving minimum
+//                         integration time. This essentially attempts
+//                         to achieve maximum resolution on smallest
+//                         reference voltage (to get shortest integration).
+//
+//    AUTO_ALL_MAX_RANGE - Aims to maximise ADC reading across all ADC
+//                         reference voltages to maximise sensor output.
+//                         This method attempts to achieve maximum use of
+//                         the sensor output range and attempts to achieve
+//                         maximum reading close to sensor saturation.
+//
+// NOTE: it is essential to set/measure sensor saturation levels for this
+//       function to work!
+//
+// NOTE2: Because it changes parameters, this mode will reset black level
+//        measurements. Therefore if black subtraction is used, the black
+//        levels need to be re-measured after this call with the same set
+//        parameters (i.e. by simply calling takeBlackMeasurement()).
+//
+void C12666MA::takeAutoMeasurement(auto_measure_t autoType,
+                                   bool doExtTriggering)
 {
     // no action if timer is on or in measurement
     if (timerOn || measuringData_)
@@ -831,29 +1024,175 @@ void C12666MA::takeMeasurement()
 
     measuringData_ = true;
 
-    // read leading black if needed
-    if (blackMode_ == LEADING_BLACK)
+    // reset blacks
+    resetBlackLevels();
+
+    // High gain is preferable since it allows more optimal filling of
+    // ADC reference range. So start with high gain.
+    setGainInternal(HIGH_GAIN);
+    float satVoltage = satVoltageHighGain_;
+
+    // change ADC ref if enabled
+    if (autoType != AUTO_FOR_SET_REF)
     {
-        readSpectrometer();
-        processMeasurement(blackLevels_);
+        if (satVoltage > adcVoltages[ADC_3V])
+            setAdcRefInternal(ADC_4_096V);
+        else if (satVoltage > adcVoltages[ADC_2_5V])
+            setAdcRefInternal(ADC_3V);
+        else
+            setAdcRefInternal(ADC_2_5V);
     }
+
+    // delay to stabilise the changes
+    delay(50);
+
+    // try to make shortest reading
+    INTEG_TICKS = uSecToTicks(MIN_INTEG_TIME_US);
+    readSpectrometer(0, false, doExtTriggering);
+    float maxMeasuredVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+
+    // check for saturated data
+    if (maxMeasuredVoltage > satVoltageHighGain_)
+    {
+        // too much - set to no gain
+        setGainInternal(NO_GAIN);
+        satVoltage = satVoltageNoGain_;
+
+        // change ADC ref if enabled
+        if (autoType != AUTO_FOR_SET_REF)
+        {
+            if (satVoltage > adcVoltages[ADC_3V])
+                setAdcRefInternal(ADC_4_096V);
+            else if (satVoltage > adcVoltages[ADC_2_5V])
+                setAdcRefInternal(ADC_3V);
+            else
+                setAdcRefInternal(ADC_2_5V);
+        }
+
+        // delay to stabilise the changes
+        delay(50);
+
+        // repeat shortest measurement
+        readSpectrometer(0, false, doExtTriggering);
+        maxMeasuredVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+    }
+
+    // Initial setup now done and we have the shortest measurement in a selected
+    // gain and encompassing saturation limits (if allowed). Check that it is
+    // less then maximum and attempt to maximise it
+    if (maxMeasuredVoltage < satVoltage && autoType == AUTO_ALL_MIN_INTEG)
+    {
+        // setup optimal ADC reference to optimise within (lowest
+        // to achieve shortest integration time)
+        if (maxMeasuredVoltage > adcVoltages[ADC_3V])
+            setAdcRefInternal(ADC_4_096V);
+        else if (maxMeasuredVoltage > adcVoltages[ADC_2_5V])
+            setAdcRefInternal(ADC_3V);
+        else
+            setAdcRefInternal(ADC_2_5V);
+
+        // delay to stabilise the changes
+        delay(50);
+    }
+
+    // correct saturation voltage
+    if (satVoltage > adcVoltages[adcRef_])
+        satVoltage = adcVoltages[adcRef_];
+
+    // The measurement tolerance - reaching this will stop auto measurement
+    // (by default within 2.5% from saturation point). This should also help
+    // keeping bandpass correction inside 0..1 range
+    float satVoltageLower = satVoltage*0.975;
+
+    // Make sure saturation voltage is just below the absolute max
+    satVoltage *= 0.99;
+
+    // now go up the integration within the range until we maximise the exposure
+    uint32_t intTicksStep = INTEG_TICKS;
+    bool stillGoing = maxMeasuredVoltage < satVoltageLower;
+    while (stillGoing)
+    {
+        // for integrations larger than a second keep watchdog happy
+        // and Particle connection keep alive
+        if (getIntTime() > 1000000)
+        {
+            ApplicationWatchdog::checkin();
+            if (Particle.connected())
+                Particle.process();
+        }
+
+        // determine increase or decrease of the integration
+        if (maxMeasuredVoltage < satVoltage)
+        {
+            // go up
+            intTicksStep = ((satVoltage-maxMeasuredVoltage)*(INTEG_TICKS+READ_TICKS))/maxMeasuredVoltage;
+            INTEG_TICKS += intTicksStep;
+        }
+        else
+        {
+            // last incerase was too much - half the steps and go down
+            intTicksStep >>= 1;
+            INTEG_TICKS = INTEG_TICKS < intTicksStep ? 0 : INTEG_TICKS - intTicksStep;
+        }
+
+        // check the limits
+        if (INTEG_TICKS < uSecToTicks(MIN_INTEG_TIME_US))
+            INTEG_TICKS = uSecToTicks(MIN_INTEG_TIME_US);
+        else if (INTEG_TICKS > uSecToTicks(MAX_INTEG_TIME_US))
+            INTEG_TICKS = uSecToTicks(MAX_INTEG_TIME_US);
+
+        // do new reading
+        readSpectrometer(0, false, doExtTriggering);
+        maxMeasuredVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+
+        // check exit conditions
+        if (maxMeasuredVoltage >= satVoltageLower && maxMeasuredVoltage < satVoltage)
+            stillGoing = false;
+        else if (INTEG_TICKS == uSecToTicks(MAX_INTEG_TIME_US) && maxMeasuredVoltage < satVoltage)
+            stillGoing = false;
+        else if (INTEG_TICKS == uSecToTicks(MIN_INTEG_TIME_US) && maxMeasuredVoltage > satVoltage)
+            stillGoing = false;
+        else if (intTicksStep <= 2)
+        {
+            stillGoing = false;
+            if (maxMeasuredVoltage > satVoltage)
+            {
+                // revert last iteration if tipped over
+                INTEG_TICKS -= intTicksStep<<1;
+                readSpectrometer(0, false, doExtTriggering);
+            }
+        }
+    }
+
+    // reprocess measurement data with set measurement type
+    maxMeasuredVoltage = processMeasurement(data_, measurementType_);
+    measuringData_ = false;
+
+    // save data that was established in EEPROM
+    EEPROM.put(EEPROM_INTEGRATION_TIME, INTEG_TICKS);
+    EEPROM.put(EEPROM_GAIN_ADDR, gain_);
+    if (autoType != AUTO_FOR_SET_REF)
+        EEPROM.put(EEPROM_ADC_REF_ADDR, adcRef_);
+}
+
+// Take single measurement
+void C12666MA::takeMeasurement(uint32_t timeUs, bool doExtTriggering)
+{
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    measuringData_ = true;
 
     // read main measurement data
-    readSpectrometer();
-    processMeasurement(data_);
-
-    // read leading black if needed
-    if (blackMode_ == FOLLOWUP_BLACK)
-    {
-        readSpectrometer();
-        processMeasurement(blackLevels_);
-    }
+    readSpectrometer(timeUs, doExtTriggering, doExtTriggering);
+    processMeasurement(data_, measurementType_);
 
     measuringData_ = false;
 }
 
 // Take single black level measurement
-void C12666MA::takeBlackMeasurement()
+void C12666MA::takeBlackMeasurement(uint32_t timeUs)
 {
     // no action if timer is on or in measurement
     if (timerOn || measuringData_)
@@ -862,18 +1201,34 @@ void C12666MA::takeBlackMeasurement()
     measuringData_ = true;
 
     // read black if needed
-    readSpectrometer();
-    processMeasurement(blackLevels_);
+    readSpectrometer(timeUs, false, false);
+    processMeasurement(blackLevels_, measurementType_);
 
     measuringData_ = false;
 }
 
+// Reset black levels to 0
+void C12666MA::resetBlackLevels()
+{
+    // Initialize arrays
+    for (int i=0; i<SPEC_PIXELS; i++)
+        blackLevels_[i] = 0.0;
+}
+
 // This routine to initiate and read spectrometer measurement data
-void C12666MA::readSpectrometer()
+void C12666MA::readSpectrometer(uint32_t timeUs,
+                                bool doExtTriggering,
+                                bool doLightTriggering)
 {
     // no action if timer is on or in measurement
     if (timerOn)
         return;
+
+    uint32_t savedIntegration = INTEG_TICKS;
+
+    // only use supplied time if non zero
+    if (timeUs > 0)
+        setIntTime(timeUs, false);
 
     // initialise variables
     specData = data;
@@ -887,11 +1242,17 @@ void C12666MA::readSpectrometer()
         dataCounts[i] = 0;
     }
 
+    // initialise trigger pins if triggering is enabled
+    if (doExtTriggering)
+        extPinTRG   = ext_trg_;
+    if (doLightTriggering)
+        extPinLIGHT = ext_trg_ls_;
+
     // init ADC
     startADC(adc_cnv_);
 
     // initiate the timer
-    startSpecTimer();
+    startSpecTimer(extTrgMeasDelayUs_, doExtTriggering);
 
     // loop until stop
     while (specState != SPEC_STOP)
@@ -900,44 +1261,154 @@ void C12666MA::readSpectrometer()
     // stop the timer and cleanup
     stopSpecTimer();
     endADC();
+
+    // restore integration if needed
+    if (timeUs > 0)
+        INTEG_TICKS = savedIntegration;
+
+    // reset trigger pins
+    extPinTRG   = NO_PIN;
+    extPinLIGHT = NO_PIN;
 }
 
 // Enable/disable Stearns and Stearns (1988) bandpass correction
 void C12666MA::enableBandpassCorrection(bool enable)
 {
-    if (timerOn || measuringData_)
-        return;
-
     applyBandPassCorrection_ = enable;
 }
 
-// Set the mode to do black measurement. Could be set to one of the
-// three modes:
-//     MANUAL_BLACK   - no auto black measurement at all. Suitable for
-//                      "always lit" spectrometer measurement in which
-//                      case black measurement could be taken manually.
-//     FOLLOWUP_BLACK - measures black following the main measurement at
-//                      the same integration time
-//     LEADING_BLACK  - measures black prior to the main measurement at
-//                      the same integration time
-//
-// The last two are automatic ways to measure black suitable for measurement
-// type where spectrometer illumination could be controlled so the dark
-// output could be measured either before or after illumination.
-void C12666MA::setBlackMode(black_t blackMode, bool storeInEeprom)
+// Set the saturation voltages. These are used to in auto integration mode
+// of measurement. Passing values outside of ranges from Hamamatsu spec 
+// will reset approprite value to a default ones.
+void C12666MA::setSaturationVoltages(float satVoltageHighGain,
+                                     float satVoltageNoGain,
+                                     bool storeInEeprom)
 {
+    // check the high gain saturation voltage against Hamamatsu spec limits
+    if (satVoltageHighGain > 0.0)
+    {
+        if (satVoltageHighGain >= MIN_SAT_VOLTAGE_HIGH_GAIN
+            && satVoltageHighGain <= MAX_SAT_VOLTAGE_HIGH_GAIN)
+            satVoltageHighGain_ = satVoltageHighGain;
+        else
+            satVoltageHighGain_ = MIN_SAT_VOLTAGE_HIGH_GAIN;
+
+        if (storeInEeprom)
+            EEPROM.put(EEPROM_SAT_VOLTAGE_HIGH_GAIN, satVoltageHighGain_);
+    }
+
+    // check the no gain saturation voltage against Hamamatsu spec limits
+    if (satVoltageNoGain > 0.0)
+    {
+        if (satVoltageNoGain >= MIN_SAT_VOLTAGE_NO_GAIN
+            && satVoltageNoGain <= MAX_SAT_VOLTAGE_NO_GAIN)
+            satVoltageNoGain_ = satVoltageNoGain;
+        else
+            satVoltageNoGain_ = MIN_SAT_VOLTAGE_NO_GAIN;
+
+        if (storeInEeprom)
+            EEPROM.put(EEPROM_SAT_VOLTAGE_NO_GAIN, satVoltageNoGain_);
+    }
+}
+
+// get average max within 5% off the measured maximum
+float getAveragedMax(float maxVal, float* measurement)
+{
+    // calculate average max
+    float avgMax = 0;
+    int count = 0;
+    for (int i=0; i<SPEC_PIXELS; i++)
+        if (measurement[i] > maxVal*0.95)
+        {
+            avgMax += measurement[i];
+            ++count;
+        }
+
+    return count ? avgMax/count : maxVal;
+}
+
+// Automatic measurement of the saturation voltages. These are used in
+// auto integration mode of measurement.
+//
+// Automatic setting works by exposing sensor to bright light and then
+// calling this method to work out saturation voltages.
+void C12666MA::measureSaturationVoltages()
+{
+    measuringData_ = true;
+
+    // save current reference and gain mode and set
+    gain_t    savedGain   = getGain();
+    adc_ref_t savedAdcRef = getAdcReference();
+
+    // set the 4.096V reference - that's the highest C12666MA will go
+    setAdcRefInternal(ADC_4_096V);
+
+    // set high gain first
+    setGainInternal(HIGH_GAIN);
+
+    // delay to stabilise the changes
+    delay(50);
+
+    // do the measurement at 1 sec to ensure sensor saturation
+    readSpectrometer(1000000, false, false);
+    float maxVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+    float hgSatVoltage = getAveragedMax(maxVoltage, data_);
+
+    // set no gain next
+    setGainInternal(NO_GAIN);
+
+    // delay to stabilise the changes
+    delay(50);
+
+    // do the measurement at 1 sec to ensure sensor saturation
+    readSpectrometer(1000000, false, false);
+    maxVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+
+    float ngSatVoltage = getAveragedMax(maxVoltage, data_);
+
+    // restore ADC reference and gain
+    setAdcRefInternal(savedAdcRef);
+    setGainInternal(savedGain);
+
+    measuringData_ = false;
+
+    // set the data
+    setSaturationVoltages(hgSatVoltage, ngSatVoltage);
+}
+
+// Set the spectrometer measurement type. This allows to change the type
+// of the measurement results and will affect all subsequent measurements.
+// The measurement results could be stored:
+//   (1) relatively - 0..1 values for currently selected ADC reference
+//   (2) as voltage measurements irrespective to ADC parameters but dependent
+//       on gain (these are absolute within the same gain settings)
+//   (3) as absolute measurements, 0..1 range scaled to saturation voltage
+void C12666MA::setMeasurementType(measure_t measurementType, bool storeInEeprom)
+{
+    // no action if timer is on or in measurement
     if (timerOn || measuringData_)
         return;
 
-    blackMode_ = blackMode;
+    // reset blacks since they no longer valid
+    if (measurementType_ != measurementType)
+        resetBlackLevels();
 
-    // store the position and counter in EEPROM
+    measurementType_ = measurementType;
+
     if (storeInEeprom)
-        EEPROM.put(EEPROM_BLACK_MODE_ADDR, blackMode_);
+        EEPROM.put(EEPROM_MEASURE_TYPE_ADDR, measurementType_);
+}
 
-    // wipe out blacks
-    for (int i=0; i<SPEC_PIXELS; i++)
-        blackLevels_[i] = 0.0;
+// Set spectrometer gain to low or high - internal function without
+// reentrance checks or EEPROM updating
+void C12666MA::setGainInternal(gain_t gain)
+{
+    gain_ = gain;
+
+    if (gain_ == NO_GAIN)
+        pinResetFast(spec_gain_);
+    else
+        pinSetFast(spec_gain_);
 }
 
 // Set spectrometer gain to low or high
@@ -947,13 +1418,8 @@ void C12666MA::setGain(gain_t gain, bool storeInEeprom)
     if (timerOn || measuringData_)
         return;
 
-    gain_ = gain;
-    if (gain == NO_GAIN)
-        pinResetFast(spec_gain_);
-    else
-        pinSetFast(spec_gain_);
+    setGainInternal(gain);
 
-    // store the position and counter in EEPROM
     if (storeInEeprom)
         EEPROM.put(EEPROM_GAIN_ADDR, gain_);
 
@@ -961,28 +1427,36 @@ void C12666MA::setGain(gain_t gain, bool storeInEeprom)
     delay(200);
 }
 
+// Set ADC reference voltage to one of the specified values. This is
+// internal function without reentrance checks or EEPROM updating
+void C12666MA::setAdcRefInternal(adc_ref_t adcRef)
+{
+    adcRef_ = adcRef;
+
+    if (adcRef_ & 1)
+        pinSetFast(adc_ref_sel1_);
+    else
+        pinResetFast(adc_ref_sel1_);
+
+    if (adcRef_ & 2)
+        pinSetFast(adc_ref_sel2_);
+    else
+        pinResetFast(adc_ref_sel2_);
+}
+
 // Set ADC reference voltage to one of the specified values. Defines maximum
 // analogue signal voltage for conversion. This generally should be used
 // together with setting the spectrometer gain (high gain will mean higher
 // reference voltage) but it is decoupled for flexibility of ADC control.
-void C12666MA::setAdcReference(adc_ref_t ref, bool storeInEeprom)
+void C12666MA::setAdcReference(adc_ref_t adcRef, bool storeInEeprom)
 {
     // no action if timer is on or in measurement
     if (timerOn || measuringData_)
         return;
 
-    adcRef_ = ref;
-    if (ref & 1)
-        pinSetFast(adc_ref_sel1_);
-    else
-        pinResetFast(adc_ref_sel1_);
+    // physically setup the ADC reference
+    setAdcRefInternal(adcRef);
 
-    if (ref & 2)
-        pinSetFast(adc_ref_sel2_);
-    else
-        pinResetFast(adc_ref_sel2_);
-
-    // store the position and counter in EEPROM
     if (storeInEeprom)
         EEPROM.put(EEPROM_ADC_REF_ADDR, adcRef_);
 
@@ -993,19 +1467,21 @@ void C12666MA::setAdcReference(adc_ref_t ref, bool storeInEeprom)
 // auxiliary function to get data at specified pixel
 inline double getData(uint16_t pixelIdx, bool subtractBlack, float* data, float* black)
 {
-    if (!subtractBlack) 
-        return data[pixelIdx]; 
- 
-    return (data[pixelIdx] < black[pixelIdx]) 
-            ? 0 
-            : data[pixelIdx] - black[pixelIdx]; 
+    if (!subtractBlack)
+        return data[pixelIdx];
+
+    return (data[pixelIdx] < black[pixelIdx])
+            ? 0
+            : data[pixelIdx] - black[pixelIdx];
 }
 
 // Get measured data for specified pixel (with or without black level adjustment)
+//
+// Note: Applying bandpass correction can go out of 0..1 range 
 double C12666MA::getMeasurement(uint16_t pixelIdx, bool subtractBlack)
 {
-    double data = getData(pixelIdx, subtractBlack, data_, blackLevels_); 
-    
+    double data = getData(pixelIdx, subtractBlack, data_, blackLevels_);
+
     if (applyBandPassCorrection_)
     {
         // Stearns and Stearns (1988) bandpass correction
@@ -1017,15 +1493,15 @@ double C12666MA::getMeasurement(uint16_t pixelIdx, bool subtractBlack)
             data = 1.166*data - 0.083*getData(pixelIdx-1, subtractBlack, data_, blackLevels_)
                               - 0.083*getData(pixelIdx+1, subtractBlack, data_, blackLevels_);
     }
-    
+
     return data;
 }
 
 // Get the read black value for specified pixel
 double C12666MA::getBlackMeasurement(uint16_t pixelIdx)
 {
-    double black = blackLevels_[pixelIdx]; 
-    
+    double black = blackLevels_[pixelIdx];
+
     if (applyBandPassCorrection_)
     {
         // Stearns and Stearns (1988) bandpass correction
@@ -1037,7 +1513,7 @@ double C12666MA::getBlackMeasurement(uint16_t pixelIdx)
             black = 1.166*black - 0.083*blackLevels_[pixelIdx-1]
                                 - 0.083*blackLevels_[pixelIdx+1];
     }
-    
+
     return black;
 }
 

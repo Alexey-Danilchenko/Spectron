@@ -30,7 +30,7 @@ The hardware for the above concept consists of the light source (LED or pulsed  
 
 With the precise intensity control of the LED light source, the whole system is essentially providing tunable monochromatic light source covering the entire visible range.
 
-All hardware component boards use [Particle Photon controllers](https://www.particle.io/products/hardware/photon-wifi-dev-kit) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud (the latter is more responsive).
+All hardware component boards use [Particle Photon controllers](https://docs.particle.io/datasheets/wi-fi/photon-datasheet/) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud (the latter is more responsive).
 
 Boards used for all individual components can be of course utilised for standalone projects - see corresponding sections for details.
 

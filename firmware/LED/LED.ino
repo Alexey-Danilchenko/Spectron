@@ -45,9 +45,8 @@ SYSTEM_THREAD(ENABLED);
 // EEPROM addresses
 #define EEPROM_CH1_BRIGHTNESS       0
 #define EEPROM_CH2_BRIGHTNESS       4
-#define EEPROM_EXPOSURE_TIME        8
 
-#define EEPROM_FREE_ADDR            12  // free address for application usage
+#define EEPROM_FREE_ADDR            8  // free address for application usage
 
 // forward declaration
 void expFinished();
@@ -60,7 +59,6 @@ static Timer expTimer(2000, expFinished);       // LED exposure timer
 static bool ledIsOn_ = false;                   // current led state
 static int32_t ch1Brightness_ = MAX_BRIGHTNESS; // channel 1 LED brightness
 static int32_t ch2Brightness_ = 0;              // channel 1 LED brightness - off
-static int32_t exposureTime_ = 2000;            // LED exposure time in ms, 0 - manual on/off
 static int32_t shortLED_ = 0;                   // short LED state
 static int32_t openLED_ = 0;                    // open LED state
 
@@ -105,12 +103,6 @@ void initLED()
     if (ch2Brightness_ < 0 || ch2Brightness_ > MAX_BRIGHTNESS)
         // EEPROM was empty
         ch2Brightness_ = 0;
-
-    // read exposureTime details from EPROM
-    EEPROM.get(EEPROM_EXPOSURE_TIME, exposureTime_);
-    if (exposureTime_ < 0 || exposureTime_ > 1000000)
-        // EEPROM was empty
-        exposureTime_ = 2000;
 }
 
 // early startup
@@ -126,34 +118,6 @@ void shortLED()
 void openLED()
 {
     openLED_ = pinReadFast(OPENLED_1) == LOW || pinReadFast(OPENLED_2) == LOW;
-}
-
-// switch on LEDs
-void ledOn()
-{
-    if (!ledIsOn_ &&
-        (ch1Brightness_ > 0 || ch2Brightness_ > 0))
-    {
-        ledIsOn_ = true;
-        analogWrite(FAN_PWM, MAX_FAN_SPEED, FAN_PWM_FREQUENCY);
-        pinSetFast(EN_FAN);
-
-        if (ch1Brightness_ > 0)
-        {
-            pinSetFast(ENABLE_1);
-            analogWrite(PWM_1, ch1Brightness_, PWM_FREQUENCY);
-        }
-        if (ch2Brightness_ > 0)
-        {
-            pinSetFast(ENABLE_2);
-            analogWrite(PWM_2, ch2Brightness_, PWM_FREQUENCY);
-        }
-        if (exposureTime_ > 0)
-        {
-            expTimer.changePeriod(exposureTime_);
-            expTimer.start();
-        }
-    }
 }
 
 // switch off LEDs
@@ -182,28 +146,6 @@ void expFinished()
     ledOff(true);
 }
 
-// cloud functions
-int ledSetExposureTime(String exposureTimeStr)
-{
-    exposureTimeStr.trim().toUpperCase();
-
-    if (ledIsOn_ || exposureTimeStr.length() == 0)
-        return -1;
-
-    int32_t exposureTime = exposureTimeStr.toInt();
-
-    if (exposureTime < 0 || exposureTime > 1000000)
-        return -1;
-
-    if (exposureTime_ != exposureTime)
-    {
-        exposureTime_ = exposureTime;
-        EEPROM.put(EEPROM_EXPOSURE_TIME, exposureTime_);
-    }
-
-    return 0;
-}
-
 // auxiliary function
 int parseBrightnessParam(String paramStr, int defBrightness)
 {
@@ -214,6 +156,57 @@ int parseBrightnessParam(String paramStr, int defBrightness)
         return MAX_BRIGHTNESS;
 
     return paramStr.toInt();
+}
+
+// Cloud functions
+
+// switch LEDs on and off
+int ledTrigger(String paramStr)
+{
+    paramStr.trim().toUpperCase();
+
+    if (paramStr.length() == 0)
+        return -1;
+
+    // parse the string
+    if (paramStr.equals("OFF"))
+        ledOff(false);
+    else if (!ledIsOn_ &&
+             (ch1Brightness_ > 0 || ch2Brightness_ > 0))
+    {
+        int32_t exposureTime = paramStr.toInt();
+        if (paramStr.equals("ON"))
+            exposureTime = 0;
+        else
+        {
+            exposureTime = paramStr.toInt();
+
+            if (exposureTime < 0 || exposureTime > 1000000)
+                return -1;
+        }
+
+        ledIsOn_ = true;
+        analogWrite(FAN_PWM, MAX_FAN_SPEED, FAN_PWM_FREQUENCY);
+        pinSetFast(EN_FAN);
+
+        if (ch1Brightness_ > 0)
+        {
+            pinSetFast(ENABLE_1);
+            analogWrite(PWM_1, ch1Brightness_, PWM_FREQUENCY);
+        }
+        if (ch2Brightness_ > 0)
+        {
+            pinSetFast(ENABLE_2);
+            analogWrite(PWM_2, ch2Brightness_, PWM_FREQUENCY);
+        }
+        if (exposureTime > 0)
+        {
+            expTimer.changePeriod(exposureTime);
+            expTimer.start();
+        }
+    }
+
+    return 0;
 }
 
 //
@@ -288,22 +281,6 @@ int ledSetBrightness(String paramStr)
     return 0;
 }
 
-int ledTrigger(String paramStr)
-{
-    paramStr.trim().toUpperCase();
-
-    if (paramStr.length() == 0)
-        return -1;
-
-    // parse the string
-    if (paramStr.equals("ON"))
-        ledOn();
-    else if (paramStr.equals("OFF"))
-        ledOff(false);
-
-    return 0;
-}
-
 // main firmware initialisation
 void setup()
 {
@@ -314,13 +291,11 @@ void setup()
     attachInterrupt(OPENLED_2,   openLED,  CHANGE);
 
     // register Particle functions
-    bool initSuccess =           Particle.function("ledSetExpTim", ledSetExposureTime);
-    initSuccess = initSuccess && Particle.function("ledSetBrtns",  ledSetBrightness);
+    bool initSuccess =           Particle.function("ledSetBrtns",  ledSetBrightness);
     initSuccess = initSuccess && Particle.function("ledTrigger",   ledTrigger);
 
     // register Particle variables
     Particle.variable("BOARD_TYPE",   BOARD_TYPE);
-    Particle.variable("ledExpTime",   exposureTime_);
     Particle.variable("ledCh1Brtnes", ch1Brightness_);
     Particle.variable("ledCh2Brtnes", ch2Brightness_);
     Particle.variable("ledShort",     shortLED_);
