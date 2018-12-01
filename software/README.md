@@ -8,10 +8,10 @@ Sample screenshotts of the automatic measurements:
 
 for Hamamatsu C12666MA spectrometer:
 
-![C1266](common/images/Specrometer.jpg) 
+![C1266](common/images/Spectrometer.jpg) 
 
 for Hamamatsu C12880MA spectrometer:
 
-![C1288](common/images/Specrometer2.jpg) 
+![C1288](common/images/Spectrometer2.jpg) 
 
 The SpectrometerApp is written using QT 5.10 and project files are binaries are provided for Windows. It should be fairly easy exercise to compile this on Linux or MacOS platform.
