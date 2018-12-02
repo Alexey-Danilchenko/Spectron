@@ -1021,7 +1021,7 @@ void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
         // check exit conditions
         if (maxMeasuredVoltage >= satVoltageLower && maxMeasuredVoltage < satVoltage)
             stillGoing = false;
-        else if (INTEG_TICKS == MIN_INTEG_TIME_TICKS && maxMeasuredVoltage < satVoltage)
+        else if (INTEG_TICKS == uSecToTicks(MAX_INTEG_TIME_US) && maxMeasuredVoltage < satVoltage)
             stillGoing = false;
         else if (INTEG_TICKS == MIN_INTEG_TIME_TICKS && maxMeasuredVoltage > satVoltage)
             stillGoing = false;

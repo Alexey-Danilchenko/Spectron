@@ -199,6 +199,8 @@ void SpectrometerApp::setMeasType(int idx)
     ui.lblIntegration->setEnabled(intEnable);
     ui.spbIntegration->setEnabled(intEnable);
     ui.cboxUnits->setEnabled(intEnable);
+    ui.btnMeasureBlack->setEnabled(intEnable);
+    ui.btnMeasSat->setEnabled(intEnable);
 
     if (!m_spectron.supportsGain())
     {
@@ -296,7 +298,7 @@ void SpectrometerApp::measure()
             if (!m_spectron.supportsGain())
                 measureTime = ui.spbMeasureTime->value()*1000;
 
-           if ( m_spectron.measure(measureTime))
+           if (m_spectron.measure(measureTime))
                 readMeasurement();
             else
                 ui.txtCSV->setPlainText(m_pAPI.getLastError());
@@ -342,7 +344,11 @@ void SpectrometerApp::measureBlack()
             if (setIntegTime != ui.spbIntegration->value())
                 m_spectron.setIntegrationTime(integTime);
 
-            if (m_spectron.measureBlack(ui.spbMeasureTime->value()*1000))
+            int measureTime = 0;
+            if (!m_spectron.supportsGain())
+                measureTime = ui.spbMeasureTime->value()*1000;
+
+           if (m_spectron.measureBlack(measureTime))
                 readMeasurement();
             else
                 ui.txtCSV->setPlainText(m_pAPI.getLastError());
