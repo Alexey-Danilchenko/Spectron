@@ -4,7 +4,7 @@
 
 The SpectrometerApp can operate Spectron board with Hamamatsu C12666 or C12880 sensors remotely via Particle cloud and fully control the Spectrometer operational parameters. The application exercise all Spectrometer board functionality including automatic exposure methods.
 
-Sample screenshotts of the automatic measurements:
+Sample screenshots of the automatic measurements:
 
 for Hamamatsu C12666MA spectrometer:
 
@@ -14,4 +14,4 @@ for Hamamatsu C12880MA spectrometer:
 
 ![C1288](common/images/Spectrometer2.jpg) 
 
-The SpectrometerApp is written using QT 5.10 and project files are binaries are provided for Windows. It should be fairly easy exercise to compile this on Linux or MacOS platform.
+The SpectrometerApp is written using QT 5.10 with project files are binaries provided for Windows 64 bit platform. It should be fairly easy to compile this on Linux or MacOS platform.
