@@ -2,7 +2,7 @@
 
 *Whilst the Spectron software is being developed and not available yet, I am releasing sample Spectrometer Application here*. 
 
-The SpectrometerApp can operate Spectron board with Hamamatsu C12666 or C12880 sensors remotely via Particle cloud and fully control the Spectrometer operational parameters. The application exetcise all Spectrometer board functionality including automatic exposure methods.
+The SpectrometerApp can operate Spectron board with Hamamatsu C12666 or C12880 sensors remotely via Particle cloud and fully control the Spectrometer operational parameters. The application exercise all Spectrometer board functionality including automatic exposure methods.
 
 Sample screenshotts of the automatic measurements:
 
