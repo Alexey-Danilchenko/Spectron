@@ -175,6 +175,7 @@
     <ClCompile Include="..\common\particle_api.cpp" />
     <ClCompile Include="..\common\SpectrometerApp.cpp" />
     <ClCompile Include="..\common\spectron_api.cpp" />
+    <ClCompile Include="..\common\spectron_cct.cpp" />
     <ClCompile Include=".\GeneratedFiles\$(ProjectName)\qrc_SpectrometerApp.cpp" />
     <ClCompile Include=".\GeneratedFiles\$(ProjectName)\$(ConfigurationName)\moc_SpectrometerApp.cpp" />
   </ItemGroup>

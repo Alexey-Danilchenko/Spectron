@@ -6,7 +6,7 @@
  *                 are tuned to run as fast as possible on Photon
  *                 hardware (STM32F205) at the price of portability.
  *
- *  Copyright 2017-2018 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2017-2019 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
  */
 
 #include "C12880MA.h"
+#include <math.h>
 
 // standard SPI pins
 #define SPI_MOSI    A5
@@ -32,17 +33,21 @@
 #define SPI_SCK     A3
 
 // EEPROM addresses
-#define EEPROM_ADC_REF_ADDR          EEPROM_C12880_BASE_ADDR
-#define EEPROM_MEASURE_TYPE_ADDR     EEPROM_C12880_BASE_ADDR+4
-#define EEPROM_INTEGRATION_TIME      EEPROM_C12880_BASE_ADDR+8
-#define EEPROM_TRG_MEAS_DELAY        EEPROM_C12880_BASE_ADDR+12
-#define EEPROM_SAT_VOLTAGE           EEPROM_C12880_BASE_ADDR+16
-#define EEPROM_CALIBRATION_COEF_1    EEPROM_C12880_BASE_ADDR+20
-#define EEPROM_CALIBRATION_COEF_2    EEPROM_C12880_BASE_ADDR+28
-#define EEPROM_CALIBRATION_COEF_3    EEPROM_C12880_BASE_ADDR+36
-#define EEPROM_CALIBRATION_COEF_4    EEPROM_C12880_BASE_ADDR+44
-#define EEPROM_CALIBRATION_COEF_5    EEPROM_C12880_BASE_ADDR+52
-#define EEPROM_CALIBRATION_COEF_6    EEPROM_C12880_BASE_ADDR+60
+#define EEPROM_CALIBRATION_COEF_1    EEPROM_C12880_BASE_ADDR
+#define EEPROM_CALIBRATION_COEF_2    EEPROM_C12880_BASE_ADDR+8
+#define EEPROM_CALIBRATION_COEF_3    EEPROM_C12880_BASE_ADDR+16
+#define EEPROM_CALIBRATION_COEF_4    EEPROM_C12880_BASE_ADDR+24
+#define EEPROM_CALIBRATION_COEF_5    EEPROM_C12880_BASE_ADDR+32
+#define EEPROM_CALIBRATION_COEF_6    EEPROM_C12880_BASE_ADDR+40
+#define EEPROM_ADC_REF_ADDR          EEPROM_C12880_BASE_ADDR+48
+#define EEPROM_MEASURE_TYPE_ADDR     EEPROM_C12880_BASE_ADDR+52
+#define EEPROM_INTEGRATION_TIME      EEPROM_C12880_BASE_ADDR+56
+#define EEPROM_TRG_MEAS_DELAY        EEPROM_C12880_BASE_ADDR+60
+#define EEPROM_SAT_VOLTAGE           EEPROM_C12880_BASE_ADDR+64
+#define EEPROM_MIN_BLACK_VOLTAGE     EEPROM_C12880_BASE_ADDR+68
+#define EEPROM_SPEC_RANGE_MIN        EEPROM_C12880_BASE_ADDR+72
+#define EEPROM_SPEC_RANGE_MAX        EEPROM_C12880_BASE_ADDR+76
+#define EEPROM_NORM_COEF_ARRAY       EEPROM_C12880_BASE_ADDR+80
 
 // Saturation voltage limits from Hamamatsu C12880A spec sheet
 #define MIN_SAT_VOLTAGE  4.1
@@ -596,20 +601,24 @@ C12880MA::C12880MA(uint8_t spec_eos, uint8_t spec_trg, uint8_t spec_clk, uint8_t
     calibration_[0] = calibration_[1] = calibration_[2] = 0;
     calibration_[3] = calibration_[4] = calibration_[5] = 0;
 
+    rangeStartIdx_ = 0;
+    rangePixels_ = SPEC_PIXELS;
+    meas_ = blackLevels_ = normCoef_ = 0;
+
     measuringData_ = false;
     applyBandPassCorrection_ = true;
 
     timerOn = false;
     specState = SPEC_STOP;
 
-    // Initialize arrays
-    for (int i=0; i<SPEC_PIXELS; i++)
-    {
-        blackLevels_[i] = 0.0;
-        data_[i] = 0.0;
-    }
-
     // read saved data and set defaults
+    EEPROM.get(EEPROM_MIN_BLACK_VOLTAGE, minBlackLevelVoltage_);
+    if (isnan(minBlackLevelVoltage_)
+        || minBlackLevelVoltage_ < 0.0
+        || minBlackLevelVoltage_ > adcVoltages[ADC_2_5V])
+        // EEPROM was empty
+        minBlackLevelVoltage_ = 0.0;
+
     EEPROM.get(EEPROM_MEASURE_TYPE_ADDR, measurementType_);
     if (measurementType_ != MEASURE_RELATIVE &&
         measurementType_ != MEASURE_VOLTAGE &&
@@ -623,6 +632,7 @@ C12880MA::C12880MA(uint8_t spec_eos, uint8_t spec_trg, uint8_t spec_clk, uint8_t
         adcRef_ != ADC_4_096V && adcRef_ != ADC_5V)
         // EEPROM was empty
         adcRef_ = ADC_5V;
+    lastMeasADCRef_ = adcRef_;
 
     uint32_t trgMeasDelayTicks = 0;
     EEPROM.get(EEPROM_TRG_MEAS_DELAY, trgMeasDelayTicks);
@@ -637,18 +647,22 @@ C12880MA::C12880MA(uint8_t spec_eos, uint8_t spec_trg, uint8_t spec_clk, uint8_t
         && ticksToUsec(intTimeTicks) < MAX_INTEG_TIME_US)
         INTEG_TICKS = intTimeTicks;
     else
-        setIntTime(500 _uSEC, false);
+        setIntTimeInternal(500 _uSEC);
 
     float satVoltage = 0.0;
     EEPROM.get(EEPROM_SAT_VOLTAGE, satVoltage);
     // check the saturation voltage against Hamamatsu spec limits
-    if (satVoltage >= MIN_SAT_VOLTAGE && satVoltage <= MAX_SAT_VOLTAGE)
-        satVoltage_ = satVoltage;
-    else
+    if (isnan(satVoltage)
+        || satVoltage < MIN_SAT_VOLTAGE
+        || satVoltage > MAX_SAT_VOLTAGE)
         satVoltage_ = MIN_SAT_VOLTAGE;
+    else
+        satVoltage_ = satVoltage;
 
     EEPROM.get(EEPROM_CALIBRATION_COEF_1, calibration_[0]);
-    if (calibration_[0] > 100 && calibration_[0] < 500)  // first coeff should be around 300
+    if (!isnan(calibration_[0])
+        && calibration_[0] > 100
+        && calibration_[0] < 500)  // first coeff should be around 300
     {
         EEPROM.get(EEPROM_CALIBRATION_COEF_2, calibration_[1]);
         EEPROM.get(EEPROM_CALIBRATION_COEF_3, calibration_[2]);
@@ -658,7 +672,27 @@ C12880MA::C12880MA(uint8_t spec_eos, uint8_t spec_trg, uint8_t spec_clk, uint8_t
     }
     else if (defaultCalibration)
     {
-        setWavelengthCalibration(defaultCalibration);
+        setWavelengthCalibrationInternal(defaultCalibration);
+    }
+
+    // initialise ranges
+    int minWavelength, maxWavelength;
+    getSensorRangeInternal(minWavelength, maxWavelength);
+    setSensorRangeInternal(minWavelength, maxWavelength);
+
+    // Initialize arrays - black with calibrated minimum
+    for (int i=0; i<rangePixels_; i++)
+    {
+        blackLevels_[i] = minBlackLevelVoltage_;
+        meas_[i] = 0.0;
+
+        // read spectral response normalisation
+        EEPROM.get(EEPROM_NORM_COEF_ARRAY+(i+rangeStartIdx_)*sizeof(float),
+                   normCoef_[i]);
+        if (isnan(normCoef_[i])
+            || normCoef_[i]<0.00001
+            || normCoef_[i]>10000)
+            normCoef_[i] = 1.0;
     }
 }
 
@@ -771,13 +805,199 @@ bool C12880MA::begin()
     return success;
 }
 
-// Sets the wavelength calibration coeffiecients. This is comma separated
-// list of 6 values that represent polinomial coefficients. Usually provided
-// by Hamamatsu but can be overriden by user calculated ones.
-void C12880MA::setWavelengthCalibration(const double* wavelengthCal, bool storeInEeprom)
+// Reset all stored values to default
+void C12880MA::resetToDefaults(const double *defaultCalibration)
+{
+    minBlackLevelVoltage_ = 0.0;
+    EEPROM.put(EEPROM_MIN_BLACK_VOLTAGE, minBlackLevelVoltage_);
+
+    measurementType_ = MEASURE_RELATIVE;
+    EEPROM.put(EEPROM_MEASURE_TYPE_ADDR, measurementType_);
+
+    adcRef_ = ADC_5V;
+    EEPROM.put(EEPROM_ADC_REF_ADDR, adcRef_);
+
+    EXT_TRG_TICKS = EXT_TRG_HIGH_TICKS+2;
+    EEPROM.put(EEPROM_TRG_MEAS_DELAY, EXT_TRG_TICKS);
+
+    setIntTime(500 _uSEC);
+
+    satVoltage_ = MIN_SAT_VOLTAGE;
+    EEPROM.put(EEPROM_SAT_VOLTAGE, satVoltage_);
+
+    setWavelengthCalibrationInternal(defaultCalibration);
+
+    setSensorRange(-1, -1);
+
+    calibrateSpectralResponse(0);
+}
+
+// Obtains sensor range from saved EEPROM
+void C12880MA::getSensorRangeInternal(int& minWavelength, int& maxWavelength)
+{
+    EEPROM.get(EEPROM_SPEC_RANGE_MIN, minWavelength);
+    EEPROM.get(EEPROM_SPEC_RANGE_MAX, maxWavelength);
+    if (minWavelength != -1 && minWavelength < 100)
+        minWavelength = -1;
+    if (maxWavelength != -1 && maxWavelength > 1000)
+        maxWavelength = -1;
+
+    if (maxWavelength>0 && maxWavelength>0 && maxWavelength<=minWavelength)
+        minWavelength = maxWavelength = -1;
+}
+
+// Sets sensor spectral range - this will set internal indexes, pixel numbers
+// and array reallocations according to the new range. This method needs
+// valid wavelength calibration coefficients to work.
+void C12880MA::setSensorRangeInternal(int& minWavelength, int& maxWavelength)
+{
+    int rangeEndIdx = rangeStartIdx_ + rangePixels_;
+    int rangeStartIdx = rangeStartIdx_;
+
+    if (minWavelength>0 && maxWavelength>0 && maxWavelength<=minWavelength)
+        return;
+
+    // reset the range start for wavelength calculations
+    rangeStartIdx_ = 0;
+
+    if (getWavelength(0) <= 0)
+    {
+        // wavlength calibration is not set - use full range
+        minWavelength = maxWavelength = -1;
+        rangeStartIdx = 0;
+        rangeEndIdx = SPEC_PIXELS;
+    }
+    else
+    {
+        // update lower bound
+        if (minWavelength != 0)
+        {
+            if (minWavelength < 0)
+                minWavelength = 340;    // value from Hamamatsu spec
+            // search for lower bound index
+            rangeStartIdx = 0;
+            for (int i=0; i<SPEC_PIXELS; ++i)
+                if (minWavelength <= (int)getWavelength(i))
+                {
+                    rangeStartIdx = i;
+                    break;
+                }
+            if (!rangeStartIdx)
+                // no valid one was found or exceeds the range
+                minWavelength = getWavelength(0);
+            // take one more pixel to enclose the range
+            if (rangeStartIdx)
+                --rangeStartIdx;
+        }
+
+        // update upper bound
+        if (maxWavelength != 0)
+        {
+            if (maxWavelength < 0)
+                maxWavelength = 850;    // value from Hamamatsu spec
+            // search for lower bound index
+            rangeEndIdx = SPEC_PIXELS;
+            for (int i=SPEC_PIXELS; i>rangeStartIdx; --i)
+                if (maxWavelength >= (int)getWavelength(i-1))
+                {
+                    rangeEndIdx = i;
+                    break;
+                }
+            if (rangeEndIdx==SPEC_PIXELS)
+                // no valid one was found or exceeds the range
+                maxWavelength = getWavelength(SPEC_PIXELS-1);
+            // take one more pixel to enclose the range
+            if (rangeEndIdx < SPEC_PIXELS)
+                ++rangeEndIdx;
+        }
+    }
+
+    // setup arrays
+    if (rangePixels_ < rangeEndIdx - rangeStartIdx)
+    {
+        // deallocate existing arrays
+        delete[] meas_;
+        meas_ = blackLevels_ = normCoef_ = 0;
+    }
+
+    rangeStartIdx_ = rangeStartIdx;
+    rangePixels_ = rangeEndIdx - rangeStartIdx;
+
+    if (!meas_)
+    {
+        meas_ = new float[3*rangePixels_];
+        blackLevels_ = meas_ + rangePixels_;
+        normCoef_ = blackLevels_ + rangePixels_;
+    }
+}
+
+// Sets the spectrometer sensor range in nanometers. If the range is
+// wider than current one, then this will reset spectral response
+// normalisation. It also resets measured value and black levels.
+//
+// Specifying either value as 0 will not update that value.
+//
+// Specifying either value as -1 will reset to the spectrometer default
+// for that value.
+//
+// Generally, the spectral range should be chosen at the beginning for
+// the specific application, sensor calibrated with it and then left alone.
+void C12880MA::setSensorRange(int minWavelength, int maxWavelength)
+{
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    // prevent measurement whilst resetting
+    measuringData_ = true;
+
+    int savedStartIdx = rangeStartIdx_;
+    int savedRangePixels = rangePixels_;
+
+    // update sensor data
+    setSensorRangeInternal(minWavelength, maxWavelength);
+
+    // store in EEPROM
+    EEPROM.put(EEPROM_SPEC_RANGE_MIN, minWavelength);
+    EEPROM.put(EEPROM_SPEC_RANGE_MAX, maxWavelength);
+
+    // check if we need to reset data
+    if (savedStartIdx != rangeStartIdx_ || savedRangePixels != rangePixels_)
+    {
+        // reset data
+        for (int i=0; i<rangePixels_; i++)
+        {
+            normCoef_[i] = 1.0;
+            blackLevels_[i] = minBlackLevelVoltage_;
+            meas_[i] = 0.0;
+        }
+
+        lastMeasADCRef_ = adcRef_;
+
+        for (int i=0; i<rangePixels_; i++)
+            // write spectral response normalisation
+            EEPROM.put(EEPROM_NORM_COEF_ARRAY+(i+rangeStartIdx_)*sizeof(float),
+                       normCoef_[i]);
+    }
+
+    measuringData_ = false;
+}
+
+// Sets the wavelength calibration coeffiecients only and preserves them in EEPROM.
+// Usually provided by Hamamatsu but can be overriden by user calculated ones.
+//
+// Return true if the calibration coefficients are changed
+bool C12880MA::setWavelengthCalibrationInternal(const double* wavelengthCal)
 {
     if (!wavelengthCal)
-        return;
+        return false;
+
+    bool changed = calibration_[0] != wavelengthCal[0] ||
+                   calibration_[1] != wavelengthCal[1] ||
+                   calibration_[2] != wavelengthCal[2] ||
+                   calibration_[3] != wavelengthCal[3] ||
+                   calibration_[4] != wavelengthCal[4] ||
+                   calibration_[5] != wavelengthCal[5];
 
     calibration_[0] = wavelengthCal[0];
     calibration_[1] = wavelengthCal[1];
@@ -786,7 +1006,7 @@ void C12880MA::setWavelengthCalibration(const double* wavelengthCal, bool storeI
     calibration_[4] = wavelengthCal[4];
     calibration_[5] = wavelengthCal[5];
 
-    if (storeInEeprom)
+    if (changed)
     {
         EEPROM.put(EEPROM_CALIBRATION_COEF_1, calibration_[0]);
         EEPROM.put(EEPROM_CALIBRATION_COEF_2, calibration_[1]);
@@ -795,6 +1015,46 @@ void C12880MA::setWavelengthCalibration(const double* wavelengthCal, bool storeI
         EEPROM.put(EEPROM_CALIBRATION_COEF_5, calibration_[4]);
         EEPROM.put(EEPROM_CALIBRATION_COEF_6, calibration_[5]);
     }
+
+    return changed;
+}
+
+// Sets the wavelength calibration coeffiecients. Usually provided
+// by Hamamatsu but can be overriden by user calculated ones.
+//
+// Setting this will reset spectral response normalisation.
+void C12880MA::setWavelengthCalibration(const double* wavelengthCal)
+{
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    // prevent measurement whilst resetting
+    measuringData_ = true;
+
+    if (setWavelengthCalibrationInternal(wavelengthCal))
+    {
+        int minWavelength, maxWavelength;
+        getSensorRangeInternal(minWavelength, maxWavelength);
+        setSensorRangeInternal(minWavelength, maxWavelength);
+
+        // reset data
+        for (int i=0; i<rangePixels_; i++)
+        {
+            normCoef_[i] = 1.0;
+            blackLevels_[i] = minBlackLevelVoltage_;
+            meas_[i] = 0.0;
+        }
+
+        lastMeasADCRef_ = adcRef_;
+
+        for (int i=0; i<rangePixels_; i++)
+            // write spectral response normalisation
+            EEPROM.put(EEPROM_NORM_COEF_ARRAY+(i+rangeStartIdx_)*sizeof(float),
+                       normCoef_[i]);
+    }
+
+    measuringData_ = false;
 }
 
 // Sets the external trigger to measurement delay time. This defines time interval
@@ -825,13 +1085,9 @@ int32_t C12880MA::getExtTrgMeasDelay()
     return EXT_TRG_TICKS ? ticksToUsec(EXT_TRG_TICKS-2) : -1;
 }
 
-// Set the integration (or sample collection) time, in microseconds
-void C12880MA::setIntTime(uint32_t timeUs, bool storeInEeprom)
+// Set the integration time, in microseconds
+void C12880MA::setIntTimeInternal(uint32_t timeUs)
 {
-    // no action if timer is on or in measurement
-    if (timerOn || measuringData_)
-        return;
-
     uint32_t intTime = timeUs*TIMER_US_FACTOR;
 
     if (intTime < MIN_INTEG_TIME_TICKS*SPEC_CLK_TICK_TIMER)
@@ -851,9 +1107,18 @@ void C12880MA::setIntTime(uint32_t timeUs, bool storeInEeprom)
     // even up INTEG_TICKS
     if (INTEG_TICKS & 1)
         INTEG_TICKS++;
+}
 
-    if (storeInEeprom)
-        EEPROM.put(EEPROM_INTEGRATION_TIME, INTEG_TICKS);
+// Set the integration (or sample collection) time, in microseconds
+void C12880MA::setIntTime(uint32_t timeUs)
+{
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    setIntTimeInternal(timeUs);
+
+    EEPROM.put(EEPROM_INTEGRATION_TIME, INTEG_TICKS);
 }
 
 // Retrieve currently set integration time
@@ -862,33 +1127,29 @@ uint32_t C12880MA::getIntTime()
     return ticksToUsec(INTEG_TICKS);
 }
 
-// Convert aggregated readouts to measurement floating point data
+// Convert aggregated readouts to voltage measurement floating point data
 // and return the max value
-float C12880MA::processMeasurement(float* measurement, measure_t measurementType)
+float C12880MA::processMeasurement(float* measurement)
 {
     // Initialize arrays
     float maxVal = 0.0;
     float adcRefVoltage = adcVoltages[adcRef_];
-    for (int i=0; i<SPEC_PIXELS; i++)
+    for (int i=0; i<rangePixels_; i++)
     {
         measurement[i] = 0.0;
 
         if (dataCounts[i])
-        {
-            if (measurementType == MEASURE_VOLTAGE)
                 measurement[i] =
-                    ((float)data[i]*adcRefVoltage)/(float)(dataCounts[i]*ADC_MAX_VALUE);
-            else if (measurementType == MEASURE_ABSOLUTE)
-                measurement[i] =
-                    ((float)data[i]*adcRefVoltage)/(satVoltage_*dataCounts[i]*ADC_MAX_VALUE);
-            else
-                measurement[i] =
-                    (float)data[i]/(float)(dataCounts[i]*ADC_MAX_VALUE);
-        }
+                    ((float)data[i+rangeStartIdx_]*adcRefVoltage) /
+                    ((float)dataCounts[i+rangeStartIdx_]*ADC_MAX_VALUE);
 
         if (measurement[i] > maxVal)
             maxVal = measurement[i];
     }
+
+    // store ADC ref for this measurement
+    if (measurement == meas_)
+        lastMeasADCRef_ = adcRef_;
 
     return maxVal;
 }
@@ -924,12 +1185,14 @@ float C12880MA::processMeasurement(float* measurement, measure_t measurementType
 // NOTE: it is essential to set/measure sensor saturation levels for this
 //       function to work!
 //
-// NOTE2: Because it changes parameters, this mode will reset black level
-//        measurements. Therefore if black subtraction is used, the black
-//        levels need to be re-measured after this call with the same set
-//        parameters (i.e. by simply calling takeBlackMeasurement()).
+// NOTE2: Because it changes exposure time, this mode will reset black level
+//        measurements to minimum calibrated by default. This can be omitted
+//        if specified. It generally is a good idea to recapture black levels
+//        with established exposure parameters after this call to make
+//        measurement more precise.
 //
 void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
+                                   bool doBlackReset,
                                    bool doExtTriggering)
 {
     // no action if timer is on or in measurement
@@ -938,8 +1201,9 @@ void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
 
     measuringData_ = true;
 
-    // reset blacks
-    resetBlackLevels();
+    // reset blacks to calibrated minimum
+    if (doBlackReset)
+        resetBlackLevels();
 
     float satVoltage = satVoltage_;
 
@@ -956,7 +1220,7 @@ void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
     // try to make shortest reading
     INTEG_TICKS = MIN_INTEG_TIME_TICKS;
     readSpectrometer(0, false, doExtTriggering);
-    float maxMeasuredVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+    float maxMeasuredVoltage = processMeasurement(meas_);
 
     // Initial setup now done and we have the shortest measurement in encompassing
     // saturation limits (if allowed). Check that it is less then maximum
@@ -1016,7 +1280,7 @@ void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
 
         // do new reading
         readSpectrometer(0, false, doExtTriggering);
-        maxMeasuredVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
+        maxMeasuredVoltage = processMeasurement(meas_);
 
         // check exit conditions
         if (maxMeasuredVoltage >= satVoltageLower && maxMeasuredVoltage < satVoltage)
@@ -1037,14 +1301,175 @@ void C12880MA::takeAutoMeasurement(auto_measure_t autoType,
         }
     }
 
-    // reprocess measurement data with set measurement type
-    maxMeasuredVoltage = processMeasurement(data_, measurementType_);
     measuringData_ = false;
 
     // save data that was established in EEPROM
     EEPROM.put(EEPROM_INTEGRATION_TIME, INTEG_TICKS);
     if (autoType != AUTO_FOR_SET_REF)
         EEPROM.put(EEPROM_ADC_REF_ADDR, adcRef_);
+}
+
+// Calculates and returns Tungsten emissivity at given wavelength and
+// temperature
+//
+// For more details refer to R. M. Pon and J. P. Hessler
+//     "Spectral emissivity of tungsten: analytic expressions for the
+//      340nm to 2.6 um spectral region"
+//
+// Tunstean Eemissivity analytical expression is calculated for
+// T=(Temp-2200K)/1000 in kK and wavelength L in micrometers as follows:
+//
+//    emT(T,L) = a0+a1*T+(b0+b1*T+b2*T*T)*(L-l0)+(c0+c1*T)*(L-l0)*(L-l0)
+//
+// given the following specification:
+//
+//    L,nm    l0     a0        a1       b0       b1      b2      c0      c1
+//   300-420  380  0.47245  -0.0155  -0.0086  -0.0229  0.0000  -2.860   0.000
+//   420-480  450  0.46361  -0.0172  -0.1304   0.0000  0.0000   0.520   0.000
+//   480-580  530  0.45549  -0.0173  -0.1150   0.0000  0.0000  -0.500   0.000
+//   580-640  610  0.44297  -0.0177  -0.1482   0.0000  0.0000   0.723   0.000
+//   640-760  700  0.43151  -0.0207  -0.1441  -0.0551  0.0000  -0.278  -0.190
+//   760-940  850  0.40610  -0.0259  -0.1889   0.0087  0.0290  -0.126   0.246
+//
+double emvTungst(double wvL, double tempK)
+{
+    // implement this form for reduced calculations
+    double T = (tempK-2200.0)/1000;
+    double emT = 0.33; // for anything > 940nm
+    if (wvL < 420.0)
+    {
+        wvL = (wvL-380.0)/1000;
+        emT = 0.47245-0.0155*T-(0.0086+0.0229*T)*wvL-2.86*wvL*wvL;
+    }
+    else if (wvL < 480.0)
+    {
+        wvL = (wvL-450.0)/1000;
+        emT = 0.46361-0.0172*T-0.1304*wvL+0.52*wvL*wvL;
+    }
+    else if (wvL < 580.0)
+    {
+        wvL = (wvL-530.0)/1000;
+        emT = 0.45549-0.0173*T-0.115*wvL-0.5*wvL*wvL;
+    }
+    else if (wvL < 640.0)
+    {
+        wvL = (wvL-610.0)/1000;
+        emT = 0.44297-0.0177*T-0.1482*wvL+0.723*wvL*wvL;
+    }
+    else if (wvL < 760.0)
+    {
+        wvL = (wvL-700.0)/1000;
+        emT = 0.43151-0.0207*T-(0.1441+0.0551*T)*wvL-(0.278+0.19*T)*wvL*wvL;
+    }
+    else if (wvL < 940.0)
+    {
+        wvL = (wvL-850.0)/1000;
+        emT = 0.4061-0.0259*T+(0.0087*T+0.029*T*T-0.1889)*wvL+(0.246*T-0.126)*wvL*wvL;
+    }
+
+    return emT;
+}
+
+// This method calibrates sensor relative spectral response.
+//
+// It expects the sensor to be exposed to stabilised tungsten light source
+// of the specified temperature, with black levels captured, measures
+// sensor response for selected parameters, calculates expected theoretical
+// response (relative against largest wavelength) for Planckian blackbody
+// corrected for tungsten source, and then calculates corrections for
+// measured sensor response (with blacks subtracted).
+//
+// Procedure for calibration:
+// 1) run the tungsten light source on stabilised power supply for at
+//    least 20 mins, measuring its temperature (using voltage/current
+//    measurement, lamp resistance against lamp resistance at room
+//    temperature) - see O. Harang, M. J. Kosch "Absolute Optical
+//    Calibrations Using a Simple Tungsten Bulb:Theory" for details
+// 2) do automatic measurement to capture spectrometer measurement and
+//    parameters at minumal ADC voltage
+// 3) capture black levels with exposure parameters established by (2)
+// 4) call this method to do the calibration specifying calculated lamp
+//    temperature at (1) and potentially new measurement (or use the one
+//    done at (2) - default)
+//
+// NOTE: This call can invalidate current measurement results
+//
+void C12880MA::calibrateSpectralResponse(float lampTempK, bool useCurrentMeasurement)
+{
+    const double AIR_REFRACTION = 1.00028;  // standard air refraction
+
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    measuringData_ = true;
+
+    // reset coesfficients
+    if (lampTempK <= 0.0)
+        for (int i=0; i<rangePixels_; i++)
+            normCoef_[i] = 1.0;
+    else
+    {
+        if (!useCurrentMeasurement)
+        {
+            // no external triggering and measuring with existing parameters
+            readSpectrometer(0, false, false);
+            processMeasurement(meas_);
+        }
+
+        // process data
+        int maxIdx = 0;
+        float maxVal = 0.0;
+
+        // first pass - calculate max wavelength
+        for (int i=0; i<rangePixels_; i++)
+        {
+            float measVal = meas_[i] > blackLevels_[i]
+                                ? meas_[i]-blackLevels_[i]
+                                : 0.0;
+            if (measVal > maxVal)
+            {
+                maxVal = measVal;
+                maxIdx = i;
+            }
+        }
+
+        if (maxVal <= 0)
+        {
+            measuringData_ = false;
+            return;
+        }
+
+        // second pass scale measurement relative to max and calculate normalisation
+        double normWv = getWavelength(maxIdx);  // normalised to measured max
+        double hckTA = 6.62606957293*2.99792458/1.38064881313*1000000./lampTempK/AIR_REFRACTION;
+        double normVal = normWv*normWv*normWv*normWv*normWv*(exp(hckTA/normWv)-1.0);
+        double normEmvTungst = emvTungst(normWv, lampTempK);
+        float maxNorm = 0.0;
+        for (int i=0; i<rangePixels_; i++)
+        {
+            double measuredRelVal = meas_[i] > blackLevels_[i]+(1.0/ADC_MAX_VALUE)
+                                      ? (meas_[i]-blackLevels_[i])/maxVal
+                                      : 0.0;
+            double curWv = getWavelength(i);
+            double calcRelVal = normVal*emvTungst(curWv, lampTempK) /
+                    (normEmvTungst*curWv*curWv*curWv*curWv*curWv*(exp(hckTA/curWv)-1.0));
+            normCoef_[i] = measuredRelVal>0 ? calcRelVal/measuredRelVal : 0;
+            if (maxNorm < normCoef_[i])
+                maxNorm = normCoef_[i];
+        }
+
+        // third pass - normalise calibration coefficients against maximum
+        for (int i=0; i<rangePixels_; i++)
+            normCoef_[i] = normCoef_[i] ? normCoef_[i]/maxNorm : 1.0;
+    }
+
+    measuringData_ = false;
+
+    for (int i=0; i<rangePixels_; i++)
+        // write spectral response normalisation
+        EEPROM.put(EEPROM_NORM_COEF_ARRAY+(i+rangeStartIdx_)*sizeof(float),
+                   normCoef_[i]);
 }
 
 // Take single measurement
@@ -1058,7 +1483,7 @@ void C12880MA::takeMeasurement(uint32_t timeUs, bool doExtTriggering)
 
     // read main measurement data
     readSpectrometer(timeUs, doExtTriggering, doExtTriggering);
-    processMeasurement(data_, measurementType_);
+    processMeasurement(meas_);
 
     measuringData_ = false;
 }
@@ -1074,17 +1499,19 @@ void C12880MA::takeBlackMeasurement(uint32_t timeUs)
 
     // read black if needed
     readSpectrometer(timeUs, false, false);
-    processMeasurement(blackLevels_, measurementType_);
+    processMeasurement(blackLevels_);
 
     measuringData_ = false;
 }
 
 // Reset black levels to 0
-void C12880MA::resetBlackLevels()
+void C12880MA::resetBlackLevels(float resetVoltage)
 {
     // Initialize arrays
-    for (int i=0; i<SPEC_PIXELS; i++)
-        blackLevels_[i] = 0.0;
+    if (resetVoltage < 0.0)
+        resetVoltage = minBlackLevelVoltage_;
+    for (int i=0; i<rangePixels_; i++)
+        blackLevels_[i] = resetVoltage;
 }
 
 // This routine to initiate and read spectrometer measurement data
@@ -1166,13 +1593,13 @@ void C12880MA::setSaturationVoltage(float satVoltage, bool storeInEeprom)
         EEPROM.put(EEPROM_SAT_VOLTAGE, satVoltage_);
 }
 
-// get average max within 5% off the measured maximum
-float getAveragedMax(float maxVal, float* measurement)
+// Get average max within 5% off the measured maximum
+float C12880MA::getAveragedMax(float maxVal, float* measurement)
 {
     // calculate average max
     float avgMax = 0;
     int count = 0;
-    for (int i=0; i<SPEC_PIXELS; i++)
+    for (int i=0; i<rangePixels_; i++)
         if (measurement[i] > maxVal*0.95)
         {
             avgMax += measurement[i];
@@ -1189,10 +1616,15 @@ float getAveragedMax(float maxVal, float* measurement)
 // calling this method to work out saturation voltages.
 void C12880MA::measureSaturationVoltage()
 {
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
     measuringData_ = true;
 
-    // save current reference and gain mode and set
+    // save current ADC reference and integration time
     adc_ref_t savedAdcRef = getAdcReference();
+    uint32_t savedIntTicks = INTEG_TICKS;
 
     // set the 5V reference - that's the highest C12880MA will go
     setAdcRefInternal(ADC_5V);
@@ -1200,36 +1632,126 @@ void C12880MA::measureSaturationVoltage()
     // delay to stabilise the changes
     delay(50);
 
-    // do the measurement at 1 sec to ensure sensor saturation
-    readSpectrometer(1000000, false, false);
-    float maxVoltage = processMeasurement(data_, MEASURE_VOLTAGE);
-    float satVoltage = getAveragedMax(maxVoltage, data_);
+    INTEG_TICKS = MIN_INTEG_TIME_TICKS;
 
-    // restore ADC reference and gain
+    // now go up the integration until we maximise the exposure
+    while (INTEG_TICKS < uSecToTicks(MAX_INTEG_TIME_US))
+    {
+        readSpectrometer(0, false, false);
+
+        // get maximum from raw measurement
+        uint32_t maxVal = 0;
+        for (int i=0; i<SPEC_PIXELS; i++)
+        {
+            uint32_t val = dataCounts[i] ? data[i]/dataCounts[i] : 0;
+            if (maxVal<val)
+                maxVal = val;
+        }
+        int maxCount = 0;
+        // count all values within 2% range from maximum
+        if (maxVal > MIN_SAT_VOLTAGE*ADC_MAX_VALUE/(2*adcVoltages[ADC_5V]))
+        {
+            maxVal = maxVal * 98 / 100;
+            for (int i=0; i<SPEC_PIXELS; i++)
+            {
+                uint32_t val = dataCounts[i] ? data[i]/dataCounts[i] : 0;
+                if (val > maxVal)
+                    ++maxCount;
+            }
+        }
+        // we reached saturation when count of
+        // max values reaches 1/3 of all pixels
+        if (maxCount >= SPEC_PIXELS/3)
+            break;
+
+        // double exposure and continue
+        INTEG_TICKS <<= 1;
+    }
+
+    if (INTEG_TICKS < uSecToTicks(MAX_INTEG_TIME_US))
+    {
+        // found saturation exposure - calculate saturation voltage
+        float maxVoltage = processMeasurement(meas_);
+
+        setSaturationVoltage(getAveragedMax(maxVoltage, meas_));
+    }
+
+    // restore ADC reference and integration
     setAdcRefInternal(savedAdcRef);
+    INTEG_TICKS = savedIntTicks;
 
     measuringData_ = false;
+}
 
-    // set the data
-    setSaturationVoltage(satVoltage);
+// Sets the minimal black level voltage. This is used for all measurements
+// when no separate black levels were captured.
+void C12880MA::setMinBlackVoltage(float minBlackVoltage)
+{
+    if (minBlackVoltage < 0.0 || minBlackVoltage > 2.0)
+        // calibrated black levels have to be reasonable
+        return;
+
+    minBlackLevelVoltage_ = minBlackVoltage;
+
+    // preserve the data
+    EEPROM.put(EEPROM_MIN_BLACK_VOLTAGE, minBlackLevelVoltage_);
+}
+
+// Automatic measurement of the minimal black level voltage. This is used
+// for all measurements when no separate black levels were captured.
+//
+// Measurement works by reading dark exposure of short integration
+// time and recording average read value (except first point which
+// always has skewed value).
+//
+// NOTE: this call invalidates current black levels
+void C12880MA::measureMinBlackVoltage()
+{
+    // no action if timer is on or in measurement
+    if (timerOn || measuringData_)
+        return;
+
+    measuringData_ = true;
+
+    // save current ADC reference and integration time
+    adc_ref_t savedAdcRef = getAdcReference();
+    uint32_t savedIntTicks = INTEG_TICKS;
+
+    // set the 2.5V reference - to make black measuremeent more precise
+    setAdcRefInternal(ADC_2_5V);
+
+    // delay to stabilise the changes
+    delay(50);
+
+    // do the measurement at 1 mSec to ensure short reading
+    setIntTimeInternal(1 _mSEC);
+    readSpectrometer(0, false, false);
+    float minBlackLevelVoltage = processMeasurement(blackLevels_);
+
+    // restore ADC reference and integration
+    setAdcRefInternal(savedAdcRef);
+    INTEG_TICKS = savedIntTicks;
+
+    // set the voltage
+    setMinBlackVoltage(minBlackLevelVoltage);
+
+    // reset all black levels to it
+    resetBlackLevels();
+
+    measuringData_ = false;
 }
 
 // Set the spectrometer measurement type. This allows to change the type
 // of the measurement results and will affect all subsequent measurements.
 // The measurement results could be stored:
 //   (1) relatively - 0..1 values for currently selected ADC reference
-//   (2) as voltage measurements irrespective to ADC parameters but dependent
-//       on gain (these are absolute within the same gain settings)
+//   (2) as voltage measurements irrespective to ADC parameters
 //   (3) as absolute measurements, 0..1 range scaled to saturation voltage
 void C12880MA::setMeasurementType(measure_t measurementType, bool storeInEeprom)
 {
     // no action if timer is on or in measurement
     if (timerOn || measuringData_)
         return;
-
-    // reset blacks since they no longer valid
-    if (measurementType_ != measurementType)
-        resetBlackLevels();
 
     measurementType_ = measurementType;
 
@@ -1272,64 +1794,49 @@ void C12880MA::setAdcReference(adc_ref_t ref, bool storeInEeprom)
     delay(200);
 }
 
-// auxiliary function to get data at specified pixel
-inline double getData(uint16_t pixelIdx, bool subtractBlack, float* data, float* black)
+// Get measured data for specified pixel
+// Note: Applying bandpass correction can go out of range
+double C12880MA::getMeasurement(uint16_t pixelIdx, bool normalise)
 {
-    if (!subtractBlack)
-        return data[pixelIdx];
-
-    return (data[pixelIdx] < black[pixelIdx])
-            ? 0
-            : data[pixelIdx] - black[pixelIdx];
-}
-
-// Get measured data for specified pixel (with or without black level adjustment)
-//
-// Note: Applying bandpass correction can go out of 0..1 range
-double C12880MA::getMeasurement(uint16_t pixelIdx, bool subtractBlack)
-{
-    double data = getData(pixelIdx, subtractBlack, data_, blackLevels_);
+    double data = meas_[pixelIdx];
 
     if (applyBandPassCorrection_)
     {
         // Stearns and Stearns (1988) bandpass correction
         if (pixelIdx == 0)
-            data = 1.083*data - 0.083*getData(pixelIdx+1, subtractBlack, data_, blackLevels_);
-        else if (pixelIdx == SPEC_PIXELS-1)
-            data = 1.083*data - 0.083*getData(pixelIdx-1, subtractBlack, data_, blackLevels_);
+            data = 1.083*data - 0.083*meas_[pixelIdx+1];
+        else if (pixelIdx == rangePixels_-1)
+            data = 1.083*data - 0.083*meas_[pixelIdx-1];
         else
-            data = 1.166*data - 0.083*getData(pixelIdx-1, subtractBlack, data_, blackLevels_)
-                              - 0.083*getData(pixelIdx+1, subtractBlack, data_, blackLevels_);
+            data = 1.166*data - 0.083*meas_[pixelIdx-1]
+                              - 0.083*meas_[pixelIdx+1];
     }
+
+    double adcRefVoltage = adcVoltages[lastMeasADCRef_];
+    bool saturated = data > satVoltage_;
+    if (data > blackLevels_[pixelIdx]+(1.0/ADC_MAX_VALUE))
+    {
+        data -= blackLevels_[pixelIdx];
+        if (measurementType_ == MEASURE_ABSOLUTE)
+            data /= satVoltage_;
+        else if (measurementType_ == MEASURE_RELATIVE)
+            data /= adcRefVoltage;
+
+        // apply spectral response corrections
+        if (normalise && !saturated)
+            data *= normCoef_[pixelIdx];
+    }
+    else
+        data = 0;
 
     return data;
-}
-
-// Get the read black value for specified pixel
-double C12880MA::getBlackMeasurement(uint16_t pixelIdx)
-{
-    double black = blackLevels_[pixelIdx];
-
-    if (applyBandPassCorrection_)
-    {
-        // Stearns and Stearns (1988) bandpass correction
-        if (pixelIdx == 0)
-            black = 1.083*black - 0.083*blackLevels_[pixelIdx+1];
-        else if (pixelIdx == SPEC_PIXELS-1)
-            black = 1.083*black - 0.083*blackLevels_[pixelIdx-1];
-        else
-            black = 1.166*black - 0.083*blackLevels_[pixelIdx-1]
-                                - 0.083*blackLevels_[pixelIdx+1];
-    }
-
-    return black;
 }
 
 // get the wavelength for specified pixel
 double C12880MA::getWavelength(uint16_t pixelNumber)
 {
     // pixelNumber in formula start with 1
-    double p = pixelNumber+1;
+    double p = pixelNumber+rangeStartIdx_+1;
     return calibration_[0]
            + (p*calibration_[1])
            + (p*p*calibration_[2])

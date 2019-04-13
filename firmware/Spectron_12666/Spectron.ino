@@ -1,7 +1,7 @@
 /*
  *  Spectron.ino - Spectron board firmware main file.
  *
- *  Copyright 2017-2018 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2017-2019 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,16 +92,18 @@ C12666MA spec(GAIN_3V,
               FACTORY_CALIBRATION);
 
 // Particle exposed variables
-const int  specPixels = SPEC_PIXELS;
+int        specPixels = SPEC_PIXELS;
+int        specOffsetIdx;
 char       specCalibrationStr[128];
 int        specAdcRef;
 int        specGain;
 int        specMeasureType;
 double     highGainSatVoltage;
 double     noGainSatVoltage;
+double     specMinBlackVoltage;
 uint32_t   specIntegTime;
 int32_t    specExtTrigDelay;
-char       lastMeas[ENC_RESULT_STR_SIZE]; // Base64 encoded floats
+char       specEncData[ENC_RESULT_STR_SIZE]; // Base64 encoded floats
 
 // maximum size for string variable data in Particle
 const int  maxVarSize = 620;
@@ -109,28 +111,127 @@ const int  maxVarSize = 620;
 // initialisation success
 static bool initSuccess = true;
 
+// re-entry prevention
+static bool measuring = false;
+
+// Auxiliary functions
+enum encode_t {
+    ET_MEASUREMENT   = 0,
+    ET_BLACK_LEVELS  = 1,
+    ET_NORMALISATION = 3
+};
+
+// Encode measurement result in Base64
+void encodeMeasurement(encode_t encodeType, bool normalise=true)
+{
+    static const char* encB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+
+    // transfer measurement as Base64 data to series of string variables
+    int bufSize = sizeof(specEncData);
+    memset(specEncData, 0, bufSize);
+    char* encData = specEncData;
+    int charCount = 0;
+
+    float floatVal = 0;
+    uint8_t *data = (uint8_t*)&floatVal;
+    int inCnt = 0, outCnt = 0;
+    int value = 0, bits = -6;
+
+    while (inCnt>>2 < SPEC_PIXELS)
+    {
+        // read the next float
+        if ((inCnt&3) == 0)
+            switch (encodeType)
+            {
+                case ET_MEASUREMENT:
+                    floatVal = spec.getMeasurement(inCnt>>2, normalise);
+                    break;
+                case ET_BLACK_LEVELS:
+                    floatVal = spec.getBlackLevelVoltage(inCnt>>2);
+                    break;
+                case ET_NORMALISATION:
+                    floatVal = spec.getNormalisationCoef(inCnt>>2);
+                    break;
+            }
+
+        value = (value<<8) + data[inCnt&3];
+        ++inCnt;
+        bits += 8;
+
+        while (bits >= 0)
+        {
+            // advance string to next Particle variable if we reached
+            // maximum for the current one
+            if (charCount >= maxVarSize)
+            {
+                ++encData;
+                charCount = 0;
+                --bufSize;
+            }
+
+            *encData++ = encB64[(value>>bits)&0x3F];
+            ++charCount;
+            --bufSize;
+            bits -= 6;
+        }
+    }
+
+    if (bits > -6)
+        *encData++ = encB64[((value<<8)>>(bits+8))&0x3F];
+
+    while (outCnt & 3)
+        *encData++ = '=';
+}
+
+
 // Cloud functions
-// Sets wavelength calibration coefficients one at a time. When the last one
-// is set, they are committed to the device and persisted. Thus to set all of
-// them calls to this function needs to be performed sequentially for each
-// coefficient.
+
+// Gets the requested pixel array data into spLastMeasN variables. Format of
+// the parameter string:
+//    BLACK_LEVELS      - black level voltages captured
+//    NORMALISATION     - spectral response normalisation coefficients
+//    MEASUREMENT       - results of the measurement with current
+//                        black levels only applied
+//    MEAS_NORMALISED   - results of the measurement with current
+//                        black levels and normalisation applied
 //
-// The committing of already set coefficients could be forced earlier with
-// the parameter. This will allow to change subset of the coefficients.
+int specGetData(String paramStr)
+{
+    if (measuring || spec.isMeasuring())
+        return -1;
+
+    // set measurement mode - preventing reentry
+    measuring = true;
+
+    // get data type
+    bool normalise = true;
+    paramStr.trim().toUpperCase();
+    encode_t encType = ET_MEASUREMENT;
+    if (paramStr == "BLACK_LEVELS")
+        encType = ET_BLACK_LEVELS;
+    else if (paramStr == "NORMALISATION")
+        encType = ET_NORMALISATION;
+    else if (paramStr == "MEASUREMENT")
+        normalise = false;
+    else if (paramStr != "MEAS_NORMALISED")
+        return -1;
+
+    // encode data
+    encodeMeasurement(encType, normalise);
+
+    // reset measurement mode
+    measuring = false;
+
+    return 0;
+}
+
+// Sets wavelength calibration coefficients. Format of parameter string:
 //
-// Format of parameter string:
-//    <N>,<ValueN> - sets coefficient N (0..5) value to non zero ValueN and
-//                   persists if there are no more coefficients left unset
-//
-//    <N>,<ValueN>,SAVE - as above but commit and persist already set
-//                         coefficients
-//
-// This complications only exist because of limitation of the Particle API
-// parameter string length
+//    <K0>,<K1>,<K2>,<K3>,<K4>,<K5> - coefficients values
 //
 int specSetWavelengthCalibration(String paramStr)
 {
-    static double calibration[6] = { 0.0,0.0,0.0,0.0,0.0,0.0 };
+    double calibration[6] = { 0.0,0.0,0.0,0.0,0.0,0.0 };
 
     // all uppercase
     paramStr.trim().toUpperCase();
@@ -139,56 +240,108 @@ int specSetWavelengthCalibration(String paramStr)
         return -1;
 
     // parse the calibration coefficient string
-    int sepIdx = paramStr.indexOf(',');
-    if (sepIdx <= 0 || sepIdx+1 == paramStr.length())
-        return -1;
-
-    int coefN = paramStr.toInt();
-    double valueN = atof(paramStr.c_str()+sepIdx+1);
-
-    if (coefN < 0 || coefN > 5 || valueN == 0.0)
-        return -1;
-
-    bool doCommit = paramStr.endsWith(",SAVE");
-
-    calibration[coefN] = valueN;
-
-    // validate if we have finished collecting all 6 values
-    if (!doCommit)
+    int sepIdx = 0;
+    for (int i=0; i<6; i++)
     {
-        bool doCommit = true;
-        for (int i=0; i<6 && doCommit; i++)
-            doCommit = calibration[i] != 0.0;
+        calibration[i] = atof(paramStr.substring(sepIdx).c_str());
+        if (calibration[i] == 0.0)
+            return -1;
 
+        sepIdx = paramStr.indexOf(',', sepIdx+1);
+        if (sepIdx<=0 && i!=5)
+            return -1;
+        ++sepIdx;
     }
+
+    // save calibration
+    spec.setWavelengthCalibration(calibration);
+
+    // update Particle variables
+    specPixels    = spec.getTotalPixels();
+    specOffsetIdx = spec.getStartPixelIdx();
+    String::format("%.10G,%.10G,%.10G,%.10G,%.10G,%.10G",
+                   calibration[0],
+                   calibration[1],
+                   calibration[2],
+                   calibration[3],
+                   calibration[4],
+                   calibration[5]).toCharArray(specCalibrationStr,
+                                               sizeof(specCalibrationStr));
+
+    return 0;
+}
+
+// Resets all internal parameters to their defaults
+int specResetToDefaults(String paramStr)
+{
+    if (spec.isMeasuring())
+        return -1;
+
+    spec.resetToDefaults(FACTORY_CALIBRATION);
+
+    // initialise Particle variables
+    specAdcRef          = spec.getAdcReference();
+    specGain            = spec.getGain();
+    specMeasureType     = spec.getMeasurementType();
+    specIntegTime       = spec.getIntTime();
+    specExtTrigDelay    = spec.getExtTrgMeasDelay();
+    highGainSatVoltage  = spec.getHighGainSatVoltage();
+    noGainSatVoltage    = spec.getNoGainSatVoltage();
+    specMinBlackVoltage = spec.getMinBlackVoltage();
+    specPixels          = spec.getTotalPixels();
+    specOffsetIdx       = spec.getStartPixelIdx();
+
+    // build
+    const double* calibration = spec.getWavelengthCalibration();
+    String::format("%.10G,%.10G,%.10G,%.10G,%.10G,%.10G",
+                   calibration[0],
+                   calibration[1],
+                   calibration[2],
+                   calibration[3],
+                   calibration[4],
+                   calibration[5]).toCharArray(specCalibrationStr,
+                                               sizeof(specCalibrationStr));
+    return 0;
+}
+
+// Set the spectral sensor range. Limiting sensor range to the specification
+// or narrower is generally useful - it leads to better calibration and more
+// precise measurements. Format of the parameter string:
+//
+//    [<min>],[<max>] - The lower and upper wavelength bounds of the
+//                      spectrometer range in nanometers. If skipped or 0
+//                      that bound will not be amended.
+//    DEFAULT         - Sets to sensor default range (according to specification)
+//    MAX             - Sets to sensor maximum range (all available pixels)
+//
+int specSetRange(String paramStr)
+{
+    // all uppercase
+    paramStr.trim().toUpperCase();
+
+    if (spec.isMeasuring() || paramStr.length() == 0)
+        return -1;
+
+    // parse the string
+    if (paramStr.equals("DEFAULT"))
+        spec.setSensorRange(-1, -1);
+    else if (paramStr.equals("MAX"))
+        spec.setSensorRange(1, 20000);  // use very large range
     else
     {
-        // fill in the 0
-        const double* savedCalibration = spec.getWavelengthCalibration();
-        for (int i=0; i<6; i++)
-            if (calibration[i] == 0.0)
-                calibration[i] = savedCalibration[i];
+        // range was explicitly supplied
+        int minWavelength = paramStr.toInt();
+        int maxWavelength = 0;
+
+        int sepIdx = paramStr.indexOf(',');
+        if (sepIdx > 0)
+            maxWavelength = paramStr.substring(sepIdx+1).trim().toInt();
+        spec.setSensorRange(minWavelength, maxWavelength);
     }
 
-    // commit the set data
-    if (doCommit)
-    {
-        spec.setWavelengthCalibration(calibration);
-
-        // build Particle variable
-        String::format("%.10G,%.10G,%.10G,%.10G,%.10G,%.10G",
-                       calibration[0],
-                       calibration[1],
-                       calibration[2],
-                       calibration[3],
-                       calibration[4],
-                       calibration[5]).toCharArray(specCalibrationStr,
-                                                   sizeof(specCalibrationStr));
-
-        // reset the data for the future setting session
-        for (int i=0; i<6; i++)
-            calibration[i] = 0.0;
-    }
+    // update Particle variables
+    specPixels    = spec.getTotalPixels();
+    specOffsetIdx = spec.getStartPixelIdx();
 
     return 0;
 }
@@ -297,12 +450,17 @@ int specSetIntegrationTime(String intTimeStr)
     return 0;
 }
 
-// Reading time in uSec as a parameter
+// Run spectral measurement. Format of the parameter string:
+//    <time>[,TRG]             - measurement time in uSec followed by optional
+//                               external triggering (if specified)
+//    AUTO[,TRG]               - Automatic measurement with current ADC voltage
+//                               and optional triggering
+//    AUTO_ALL_MIN_INTEG[,TRG] - Automatic measurement for min integration and
+//                               optional triggering
+//    AUTO_ALL_MAX_RANGE[,TRG] - Automatic measurement for max range and
+//                               optional triggering
 int specMeasure(String paramStr)
 {
-    static const char* encB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
-    static bool measuring = false;
-
     if (measuring || spec.isMeasuring())
         return -1;
 
@@ -345,49 +503,7 @@ int specMeasure(String paramStr)
     }
 
     // transfer measurement as Base64 data to series of string variables
-    int bufSize = sizeof(lastMeas);
-    memset(lastMeas, 0, bufSize);
-    char* meas = lastMeas;
-    int charCount = 0;
-
-    float measValue = 0;
-    uint8_t *data = (uint8_t*)&measValue;
-    int inCnt = 0, outCnt = 0;
-    int value = 0, bits = -6;
-
-    while (inCnt>>2 < SPEC_PIXELS)
-    {
-        // read the next float
-        if ((inCnt&3) == 0)
-            measValue = spec.getMeasurement(inCnt>>2);
-
-        value = (value<<8) + data[inCnt&3];
-        ++inCnt;
-        bits += 8;
-
-        while (bits >= 0)
-        {
-            // advance string to next Particle variable if we reached
-            // maximum for the current one
-            if (charCount >= maxVarSize)
-            {
-                ++meas;
-                charCount = 0;
-                --bufSize;
-            }
-
-            *meas++ = encB64[(value>>bits)&0x3F];
-            ++charCount;
-            --bufSize;
-            bits -= 6;
-        }
-    }
-
-    if (bits > -6)
-        *meas++ = encB64[((value<<8)>>(bits+8))&0x3F];
-
-    while (outCnt & 3)
-        *meas++ = '=';
+    encodeMeasurement(ET_MEASUREMENT);
 
     // reset measurement mode
     measuring = false;
@@ -395,30 +511,33 @@ int specMeasure(String paramStr)
     return 0;
 }
 
-// Reading time in uSec as a parameter
+// Run black measurement. Format of the parameter string:
+//    <time>      - measurement time in uSec (if 0 uses last one)
+//    RESET       - resets black levels
 int specMeasureBlack(String paramStr)
 {
     paramStr.trim().toUpperCase();
 
-    if (spec.isMeasuring() || paramStr.length() == 0)
+    if (measuring || spec.isMeasuring())
         return -1;
 
+    // set measurement mode - preventing reentry
+    measuring = true;
+
     // parse the time
+    if (paramStr.equals("RESET"))
+        spec.resetBlackLevels();
+    else
+    {
     int32_t measTimeUs = paramStr.toInt();
     if (measTimeUs < 0)
         return -1;
 
     spec.takeBlackMeasurement(measTimeUs);
+    }
 
-    return 0;
-}
-
-int specResetBlack(String notUsedStr)
-{
-    if (spec.isMeasuring())
-        return -1;
-
-    spec.resetBlackLevels();
+    // reset measurement mode
+    measuring = false;
 
     return 0;
 }
@@ -482,11 +601,88 @@ int specSetSaturationVoltages(String paramStr)
     return 0;
 }
 
+// Set the minimum black level voltage either to spacified value or automatic.
+//    <blackLevelVoltage>  - value of min black level voltage
+//    AUTO                 - measure min black level voltage automatically
+//
+int specSetMinBlack(String paramStr)
+{
+    // all uppercase
+    paramStr.trim().toUpperCase();
+
+    if (spec.isMeasuring() || paramStr.length() == 0)
+        return -1;
+
+    // parse the string
+    if (paramStr.equals("AUTO"))
+        spec.measureMinBlackVoltage();
+    else
+        spec.setMinBlackVoltage(paramStr.toFloat());
+
+    // update variable
+    specMinBlackVoltage = spec.getMinBlackVoltage();
+
+    return 0;
+}
+
+// Calibrate spectral response. Format of the parameter string:
+//    <TempK>[,MEASURE]  - TempK - lamp temperature in K,
+//                         second parameter only specified to perform measuring
+//                         instead of using already existing one
+//    RESET              - reset calibration to unity
+//
+// Procedure for calibration:
+//
+// 1) run the tungsten light source on stabilised power supply for at
+//    least 20 mins, measuring its temperature (using voltage/current
+//    measurement, lamp resistance against lamp resistance at room
+//    temperature) - see O. Harang, M. J. Kosch "Absolute Optical
+//    Calibrations Using a Simple Tungsten Bulb:Theory" for details
+// 2) do automatic measurement to capture spectrometer measurement and
+//    parameters at minumal ADC voltage and high gain for higher
+//    dynamic range
+// 3) capture black levels with exposure parameters established by (2)
+// 4) call this method to do the calibration specifying calculated lamp
+//    temperature at (1) and potentially new measurement (or use the one
+//    done at (2))
+//
+int specCalibrateSpectralResponse(String paramStr)
+{
+    // all uppercase
+    paramStr.trim().toUpperCase();
+
+    if (measuring || spec.isMeasuring() || paramStr.length() == 0)
+        return -1;
+
+    // set measurement mode - preventing reentry
+    measuring = true;
+
+    // parse the string
+    bool useCurrentMeasurement = !paramStr.endsWith(",MEASURE");
+    if (paramStr.equals("RESET"))
+        spec.calibrateSpectralResponse(0.0);
+    else
+    {
+        float tempK = paramStr.toFloat();
+
+        // set the voltages
+        spec.calibrateSpectralResponse(tempK, useCurrentMeasurement);
+    }
+
+    // update measurement results
+    encodeMeasurement(ET_NORMALISATION);
+
+    // reset measurement mode
+    measuring = false;
+
+    return 0;
+}
+
 // main firmware initialisation
 void setup()
 {
     // initialise variables
-    memset(lastMeas, 0, sizeof(lastMeas));
+    memset(specEncData, 0, sizeof(specEncData));
 
     pinMode(TRG_CAMERA, OUTPUT);
     pinMode(TRG_LIGHT_SRC,  OUTPUT);
@@ -495,13 +691,16 @@ void setup()
     initSuccess = spec.begin();
 
     // initialise Particle variables
-    specAdcRef         = spec.getAdcReference();
-    specGain           = spec.getGain();
-    specMeasureType    = spec.getMeasurementType();
-    specIntegTime      = spec.getIntTime();
-    specExtTrigDelay   = spec.getExtTrgMeasDelay();
-    highGainSatVoltage = spec.getHighGainSatVoltage();
-    noGainSatVoltage   = spec.getNoGainSatVoltage();
+    specAdcRef          = spec.getAdcReference();
+    specGain            = spec.getGain();
+    specMeasureType     = spec.getMeasurementType();
+    specIntegTime       = spec.getIntTime();
+    specExtTrigDelay    = spec.getExtTrgMeasDelay();
+    highGainSatVoltage  = spec.getHighGainSatVoltage();
+    noGainSatVoltage    = spec.getNoGainSatVoltage();
+    specMinBlackVoltage = spec.getMinBlackVoltage();
+    specPixels          = spec.getTotalPixels();
+    specOffsetIdx       = spec.getStartPixelIdx();
 
     // build
     const double* calibration = spec.getWavelengthCalibration();
@@ -515,38 +714,44 @@ void setup()
                                                sizeof(specCalibrationStr));
 
     // register Particle variables
-    initSuccess = initSuccess && Particle.variable("BOARD_TYPE",   BOARD_TYPE);
-    initSuccess = initSuccess && Particle.variable("spNumPixels",  specPixels);
-    initSuccess = initSuccess && Particle.variable("spADCRef",     specAdcRef);
-    initSuccess = initSuccess && Particle.variable("spGain",       specGain);
-    initSuccess = initSuccess && Particle.variable("spMeasType",   specMeasureType);
-    initSuccess = initSuccess && Particle.variable("spIntegTime",  specIntegTime);
-    initSuccess = initSuccess && Particle.variable("spTrgMeasDl",  specExtTrigDelay);
-    initSuccess = initSuccess && Particle.variable("spCal",        specCalibrationStr);
-    initSuccess = initSuccess && Particle.variable("spHGSatVolt",  highGainSatVoltage);
-    initSuccess = initSuccess && Particle.variable("spNGSatVolt",  noGainSatVoltage);
+    initSuccess = initSuccess && Particle.variable("BOARD_TYPE",          BOARD_TYPE);
+    initSuccess = initSuccess && Particle.variable("spNumPixels",         specPixels);
+    initSuccess = initSuccess && Particle.variable("spADCRef",            specAdcRef);
+    initSuccess = initSuccess && Particle.variable("spGain",              specGain);
+    initSuccess = initSuccess && Particle.variable("spMeasurementType",   specMeasureType);
+    initSuccess = initSuccess && Particle.variable("spIntegrationTime",   specIntegTime);
+    initSuccess = initSuccess && Particle.variable("spTrigMeasureDelay",  specExtTrigDelay);
+    initSuccess = initSuccess && Particle.variable("spWavelenCalibration",specCalibrationStr);
+    initSuccess = initSuccess && Particle.variable("spHighGainSatVoltage",highGainSatVoltage);
+    initSuccess = initSuccess && Particle.variable("spNoGainSatVoltage",  noGainSatVoltage);
+    initSuccess = initSuccess && Particle.variable("spMinBlackVoltage",   specMinBlackVoltage);
+    initSuccess = initSuccess && Particle.variable("spPixelOffsetIdx",    specOffsetIdx);
 
-    char* meas = lastMeas;
+    char* encData = specEncData;
     int count = 1;
-    while (meas-lastMeas < sizeof(lastMeas))
+    while (encData-specEncData < sizeof(specEncData))
     {
-        String varName = "spLastMeas";
+        String varName = "spData";
         varName += String(count++);
-        initSuccess = initSuccess && Particle.variable(varName, meas);
-        meas += maxVarSize+1;
+        initSuccess = initSuccess && Particle.variable(varName, encData);
+        encData += maxVarSize+1;
     }
 
     // register functions
-    initSuccess = initSuccess && Particle.function("spMeasure",    specMeasure);
-    initSuccess = initSuccess && Particle.function("spMeasureBlk", specMeasureBlack);
-    initSuccess = initSuccess && Particle.function("spSetIntTime", specSetIntegrationTime);
-    initSuccess = initSuccess && Particle.function("spSetTrMesDl", specSetTriggerMeasurementDelay);
-    initSuccess = initSuccess && Particle.function("spSetGain",    specSetGain);
-    initSuccess = initSuccess && Particle.function("spSetADCRef",  specSetADCRef);
-    initSuccess = initSuccess && Particle.function("spSetMeasTyp", specSetMeasurementType);
-    initSuccess = initSuccess && Particle.function("spSetWvlnCal", specSetWavelengthCalibration);
-    initSuccess = initSuccess && Particle.function("spResetBlk",   specResetBlack);
-    initSuccess = initSuccess && Particle.function("spSetSatVolt", specSetSaturationVoltages);
+    initSuccess = initSuccess && Particle.function("spGetData",               specGetData);
+    initSuccess = initSuccess && Particle.function("spMeasure",               specMeasure);
+    initSuccess = initSuccess && Particle.function("spMeasureBlack",          specMeasureBlack);
+    initSuccess = initSuccess && Particle.function("spSetIntegrationTime",    specSetIntegrationTime);
+    initSuccess = initSuccess && Particle.function("spSetTrigMeasureDelay",   specSetTriggerMeasurementDelay);
+    initSuccess = initSuccess && Particle.function("spSetADCRef",             specSetADCRef);
+    initSuccess = initSuccess && Particle.function("spSetGain",               specSetGain);
+    initSuccess = initSuccess && Particle.function("spSetMeasurementType",    specSetMeasurementType);
+    initSuccess = initSuccess && Particle.function("spSetWavelenCalibration", specSetWavelengthCalibration);
+    initSuccess = initSuccess && Particle.function("spSetSaturationVoltage",  specSetSaturationVoltages);
+    initSuccess = initSuccess && Particle.function("spSetMinBlackVoltage",    specSetMinBlack);
+    initSuccess = initSuccess && Particle.function("spCalibrateSpectralResp", specCalibrateSpectralResponse);
+    initSuccess = initSuccess && Particle.function("spSetSpectralRange",      specSetRange);
+    initSuccess = initSuccess && Particle.function("spResetToDefaults",       specResetToDefaults);
 
     // connect
     if (!Particle.connected())

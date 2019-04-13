@@ -1,7 +1,7 @@
 /*
  *  C12666MA.h - Hamamatsu C12666MA driver for Spectron board.
  *
- *  Copyright 2015-2018 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2015-2019 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,9 +68,9 @@ enum gain_t {
 
 // Types of automatic measurement
 enum auto_measure_t {
-    AUTO_FOR_SET_REF,    // Maximises range for currently set ADC reference voltage
-    AUTO_ALL_MIN_INTEG,  // Maximises range for all ADC that achieves mimimal integration
-    AUTO_ALL_MAX_RANGE   // Maximises range for sensor saturation limit
+    AUTO_FOR_SET_REF   = 0,  // Maximises range for currently set ADC reference voltage
+    AUTO_ALL_MIN_INTEG = 1,  // Maximises range for all ADC that achieves mimimal integration
+    AUTO_ALL_MAX_RANGE = 2   // Maximises range for sensor saturation limit
 };
 
 // EEPROM base address and area size used by this class
@@ -78,12 +78,28 @@ enum auto_measure_t {
 #ifndef EEPROM_C12666_BASE_ADDR
 #define EEPROM_C12666_BASE_ADDR  0
 #endif
-#define EEPROM_C12666_SIZE       76
+#define EEPROM_C12666_SIZE       88+(SPEC_PIXELS*4)
 
 // Spectrometer class
 //
 //    This class uses TIM7 timer interrupt as well as SPI so it affects their
 //    configuration when used
+//
+//    This class utilises a range of spectrometer pixels from Hamamatsu sensor
+//    defined by first physical sensor pixel index and number of pixels.
+//    This is done to cater for the useful range - spectrometers come with a
+//    sensor covering sometimes substantially broader range than specification
+//    and in those extended areas signal is not very reliable and exhibits
+//    substantial errors. Limiting the range allows to achieve better
+//    performance and normalisation overall.
+//
+//    For colour science applications, ranges 380-730nm should be sufficient.
+//
+//    For any other applications, sensor range 340-780nm from specification
+//    is a good starting point.
+//
+//    Ranges could be set via API call, but extending them will invalidate
+//    spectral response normalisation.
 //
 class C12666MA {
 private:
@@ -93,6 +109,8 @@ private:
 
     // Variables
     double    calibration_[6];  // Hamamatsu calibration constants to provide wavelenghts
+    int       rangeStartIdx_;   // Index of the first spectrometer pixel in a spectrometer range
+    int       rangePixels_;     // Total pixels in a measured spectral range
     gain_t    gain_;            // High/low gain
     adc_ref_t adcRef_;          // ADC reference voltage
     measure_t measurementType_; // Measurement result type - relative 0..1 value or voltage
@@ -101,18 +119,26 @@ private:
     int       extTrgMeasDelayUs_;       // Measurement delay from triggering if enabled
     float     satVoltageHighGain_;      // Sensor saturation voltage with high gain
     float     satVoltageNoGain_;        // Sensor saturation voltage with no gain
+    float     minBlackLevelVoltage_;    // Stored single black level voltage - used as default
 
-    float     data_[SPEC_PIXELS];         // Last measurement 0..1 scaled according to measurementType_
-    float     blackLevels_[SPEC_PIXELS];  // Last black measurement scaled as above
+    float     *blackLevels_;   // Individual pixel black level measurement in volts
+    float     *normCoef_;      // Normalisations coefficients for spectrometer
+    float     *meas_;          // Last measurement expressed in voltage with subtracted black
+    adc_ref_t lastMeasADCRef_; // ADC reference used for last measurement
+    gain_t    lastMeasGain_;   // Gain used for last measurement
 
-    // Low-level communication - this will initiate and read spectrometer measurement data
+    // Low-level internal routines
     void readSpectrometer(uint32_t timeUs, bool doExtTriggering, bool doLightTriggering);
     void setAdcRefInternal(adc_ref_t adcRef);
     void setGainInternal(gain_t gain);
-    float processMeasurement(float* measurement, measure_t measurementType = MEASURE_RELATIVE);
+    void setSensorRangeInternal(int& minWavelength, int& maxWavelength);
+    void getSensorRangeInternal(int& minWavelength, int &maxWavelength);
+    float processMeasurement(float* measurement);
+    float getAveragedMax(float maxVal, float* measurement);
+    bool setWavelengthCalibrationInternal(const double* wavelengthCal);
+    bool findSaturatedExposure();
 
 public:
-
     // Constructor/destructor
     // Parameters:
     //     spec_gain    - C12666MA GAIN controlling pin
@@ -134,10 +160,28 @@ public:
     // Setup methods and setters
     bool begin();
 
+    // Reset all stored values to default
+    void resetToDefaults(const double *defaultCalibration);
+
+    // Sets the spectrometer sensor range in nanometers. If the range is
+    // wider than current one, then this will reset spectral response
+    // normalisation.
+    //
+    // Specifying either value as 0 will not update that value.
+    //
+    // Specifying either value as -1 will reset to the spectrometer physical
+    // limit for that value.
+    //
+    // Generally, the spectral range should be chosen at the beginning for
+    // the specific application, sensor calibrated with it and then left alone.
+    void setSensorRange(int minWavelength, int maxWavelength);
+
     // Sets the wavelength calibration coeffiecients. This is array of 6
     // values that represent polinomial coefficients. Usually provided
     // by Hamamatsu but can be overriden by user calculated ones.
-    void setWavelengthCalibration(const double* wavelengthCal, bool storeInEeprom = true);
+    //
+    // Setting this will reset spectral response normalisation.
+    void setWavelengthCalibration(const double* wavelengthCal);
 
     // Sets the external trigger to measurement delay time. This defines time interval
     // in uSec that offsets external trigger from the measurement. I.e. external trigger
@@ -175,8 +219,8 @@ public:
     // Enable/disable Stearns and Stearns (1988) bandpass correction
     void enableBandpassCorrection(bool enable);
 
-    // Set the saturation voltages. These are used to in auto integration mode
-    // of measurement. Passing values outside of ranges from Hamamatsu spec 
+    // Sets the saturation voltages. These are used to in auto integration mode
+    // of measurement. Passing values outside of ranges from Hamamatsu spec
     // will reset approprite value to a default ones.
     void setSaturationVoltages(float satVoltageHighGain,
                                float satVoltageNoGain,
@@ -188,6 +232,18 @@ public:
     // Automatic setting works by exposing sensor to bright light and then
     // calling this method to work out saturation voltages.
     void measureSaturationVoltages();
+
+    // Sets the minimal black level voltage. This is usedfor all measurements
+    // when no separate black levels were captured.
+    void setMinBlackVoltage(float minBlackVoltage);
+
+    // Automatic measurement of the minimal black level voltage. This is used
+    // for all measurements when no separate black levels were captured.
+    //
+    // Measurement works by reading dark exposure of short integration
+    // time and recording average read value (except first point which
+    // always has skewed value).
+    void measureMinBlackVoltage();
 
     // Take spectrometer reading in automatic mode. This does not require
     // integration time. Also as a result of measurement it will set the
@@ -220,13 +276,42 @@ public:
     // NOTE: it is essential to set/measure sensor saturation levels for this
     //       function to work!
     //
-    // NOTE2: Because it changes parameters, this mode will reset black level
-    //        measurements. Therefore if black subtraction is used, the black
-    //        levels need to be re-measured after this call with the same set
-    //        parameters (i.e. by simply calling takeBlackMeasurement()).
+    // NOTE2: Because it changes exposure time, this mode will reset black level
+    //        measurements to minimum calibrated by default. This can be omitted
+    //        if specified. It generally is a good idea to recapture black levels
+    //        with established exposure parameters after this call to make
+    //        measurement more precise.
     //
     void takeAutoMeasurement(auto_measure_t autoType = AUTO_FOR_SET_REF,
+                             bool doBlackReset = true,
                              bool doExtTriggering = false);
+
+    // This method calibrates sensor relative spectral response.
+    //
+    // It expects the sensor to be exposed to stabilised tungsten light source
+    // of the specified temperature, with black levels captured, measures
+    // sensor response for selected parameters, calculates expected theoretical
+    // response (relative against largest wavelength) for Planckian blackbody
+    // corrected for tungsten source, and then calculates corrections for
+    // measured sensor response (with blacks subtracted).
+    //
+    // Procedure for calibration:
+    // 1) run the tungsten light source on stabilised power supply for at
+    //    least 20 mins, measuring its temperature (using voltage/current
+    //    measurement, lamp resistance against lamp resistance at room
+    //    temperature) - see O. Harang, M. J. Kosch "Absolute Optical
+    //    Calibrations Using a Simple Tungsten Bulb:Theory" for details
+    // 2) do automatic measurement to capture spectrometer measurement and
+    //    parameters at minumal ADC voltage and high gain for higher
+    //    dynamic range
+    // 3) capture black levels with exposure parameters established by (2)
+    // 4) call this method to do the calibration specifying calculated lamp
+    //    temperature at (1) and potentially new measurement (or use the one
+    //    done at (2) - default)
+    //
+    // NOTE: This call can invalidate current measurement results
+    //
+    void calibrateSpectralResponse(float lampTempK, bool useCurrentMeasurement = true);
 
     // Take spectrometer reading at specified time. If specified time is larger
     // than integration time take several measurement cycles at integration time
@@ -243,25 +328,32 @@ public:
     // conditions
     void takeBlackMeasurement(uint32_t timeUs = 0);
 
-    // Reset black levels to 0
-    void resetBlackLevels();
+    // Reset black levels to given level. If negative value is specified the
+    // levels are reset to calibrated minimum black (default behavior).
+    void resetBlackLevels(float resetVoltage = -1.0);
 
-    // Get measured data for specified pixel (with or without black level adjustment)
-    double getMeasurement(uint16_t pixelIdx, bool subtractBlack = true);
+    // Get measured data for specified pixel (normalised or as is)
+    double getMeasurement(uint16_t pixelIdx, bool normalise=true);
 
-    // Get the read black value for specified pixel
-    double getBlackMeasurement(uint16_t pixelIdx);
+    // Get the read black voltage for specified pixel
+    float getBlackLevelVoltage(uint16_t pixelIdx) { return blackLevels_[pixelIdx]; }
 
-    // Get the wavelength for specified pixel
-    double getWavelength(uint16_t pixel);  // get the wavelength for specified pixel
+    // Get the normalisation coefficients
+    float getNormalisationCoef(uint16_t pixelIdx) { return normCoef_[pixelIdx]; }
+
+    // Get the wavelength for specified pixel in nanometers
+    double getWavelength(uint16_t pixel);
 
     // Attribute getters
     const double* getWavelengthCalibration() { return calibration_; }
+    int getTotalPixels()                     { return rangePixels_; }
+    int getStartPixelIdx()                   { return rangeStartIdx_; }
     gain_t getGain()                         { return gain_; }
     adc_ref_t getAdcReference()              { return adcRef_; }
     measure_t getMeasurementType()           { return measurementType_; }
     float getHighGainSatVoltage()            { return satVoltageHighGain_; }
     float getNoGainSatVoltage()              { return satVoltageNoGain_; }
+    float getMinBlackVoltage()               { return minBlackLevelVoltage_; }
     bool isMeasuring()                       { return measuringData_; }
     bool isBandpassCorrected()               { return applyBandPassCorrection_; }
     int32_t getExtTrgMeasDelay()             { return extTrgMeasDelayUs_; }

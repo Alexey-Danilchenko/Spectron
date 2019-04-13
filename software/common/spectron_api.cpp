@@ -2,7 +2,7 @@
  *  spectron_api.cpp - Implementation of API calls to Spectron boards with
  *                     Hamamatsu Micro Spectrometer sensors
  *
- *  Copyright 2017-2018 Alexey Danilchenko
+ *  Copyright 2017-2019 Alexey Danilchenko
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@
 //     Spectron Device implementation
 // --------------------------------------
 
-static bool translateFloatArray(const QByteArray& buf, TDoubleVec& dblVec, int totalPixels)
+static double translateFloatArray(const QByteArray& buf, TDoubleVec& dblVec, int totalPixels)
 {
     // table from '+' to 'z'
     static const uint8_t b64Dec[] = {
@@ -50,6 +50,7 @@ static bool translateFloatArray(const QByteArray& buf, TDoubleVec& dblVec, int t
     byte *data = (uint8_t*)&fData;
     int value = 0, bits = -8;
     int inCnt = 0, outCnt = 0;
+    double maxMeasured = 0.0;
 
     dblVec.clear();
 
@@ -69,6 +70,8 @@ static bool translateFloatArray(const QByteArray& buf, TDoubleVec& dblVec, int t
             if ((outCnt&3) == 0)
             {
                 dblVec.append((double)fData);
+                if (maxMeasured < fData)
+                    maxMeasured = fData;
                 data[0]=data[1]=data[2]=data[3]=0;
                 if (dblVec.size() >= totalPixels)
                     break;
@@ -77,14 +80,16 @@ static bool translateFloatArray(const QByteArray& buf, TDoubleVec& dblVec, int t
         }
     }
 
-    return true;
+    return maxMeasured;
 }
 
 // constructors/destructors
 SpectronDevice::SpectronDevice()
     : ParticleDevice(), m_supportsGain(false),
       m_adcRef(ADC_2_5V), m_gain(NO_GAIN), m_totalPixels(256),
-      m_measType(MEASURE_RELATIVE), m_integTime(0), m_extTrgDelay(0)
+      m_measType(MEASURE_RELATIVE), m_integTime(0), m_extTrgDelay(0),
+      m_maxLastMeasuredValue(0.0), m_minVlackVoltage(0.0), 
+      m_applySpectralCorrection(true), m_pixelOffsetIdx(0)
 {
     for (int i=0; i<6; i++)
         m_specCalibration[i] = 0.0;
@@ -112,28 +117,30 @@ bool SpectronDevice::refresh()
         return false;
 
     m_adcRef = (TAdcRef)getVariableValue("spADCRef").toInt();
+    m_minVlackVoltage = getVariableValue("spMinBlackVoltage").toDouble();
     if (hasVariable("spGain"))
     {
         m_gain = (TGain)getVariableValue("spGain").toInt();
-        m_satVoltage[NO_GAIN] = getVariableValue("spNGSatVolt").toDouble();
-        m_satVoltage[HIGH_GAIN] = getVariableValue("spHGSatVolt").toDouble();
+        m_satVoltage[NO_GAIN] = getVariableValue("spNoGainSatVoltage").toDouble();
+        m_satVoltage[HIGH_GAIN] = getVariableValue("spHighGainSatVoltage").toDouble();
         m_supportsGain = true;
     }
     else
     {
         m_gain = NO_GAIN;
-        m_satVoltage[NO_GAIN] = getVariableValue("spSatVoltage").toDouble();
+        m_satVoltage[NO_GAIN] = getVariableValue("spSaturationVoltage").toDouble();
         m_supportsGain = false;
     }
     m_totalPixels = getVariableValue("spNumPixels").toInt();
-    m_integTime = getVariableValue("spIntegTime").toInt();
-    m_extTrgDelay = getVariableValue("spTrgMeasDl").toInt();
-    m_measType = (TMeasType)getVariableValue("spMeasType").toInt();
+    m_pixelOffsetIdx = getVariableValue("spPixelOffsetIdx").toInt();
+    m_integTime = getVariableValue("spIntegrationTime").toInt();
+    m_extTrgDelay = getVariableValue("spTrigMeasureDelay").toInt();
+    m_measType = (TMeasType)getVariableValue("spMeasurementType").toInt();
 
     // translate calibration array if have not read it yet
     if (m_specCalibration[0] == 0.0)
     {
-        QString calArr = QString("[%1]").arg(getVariableValue("spCal").toString());
+        QString calArr = QString("[%1]").arg(getVariableValue("spWavelenCalibration").toString());
         QJsonParseError parseError;
         QJsonDocument jsonDoc = QJsonDocument::fromJson(calArr.toUtf8(), &parseError);
         if (parseError.error == QJsonParseError::NoError
@@ -156,7 +163,7 @@ bool SpectronDevice::setTriggerMeasurementDelay(int delayUs)
     QString param;
     m_extTrgDelay = delayUs;
     param.setNum(delayUs);
-    return callFunction("spSetTrMesDl", param) != -1;
+    return callFunction("spSetTrigMeasureDelay", param) != -1;
 }
 
 bool SpectronDevice::setGain(TGain gain)
@@ -184,7 +191,7 @@ bool SpectronDevice::setMeasureType(TMeasType measType)
     m_measType = measType;
     QString param;
     param.setNum(m_measType);
-    return callFunction("spSetMeasTyp", param) != -1;
+    return callFunction("spSetMeasurementType", param) != -1;
 }
 
 bool SpectronDevice::setIntegrationTime(int integrationTimeUs)
@@ -194,11 +201,44 @@ bool SpectronDevice::setIntegrationTime(int integrationTimeUs)
 
     QString param;
     param.setNum(integrationTimeUs);
-    if (callFunction("spSetIntTime", param) == -1)
+    if (callFunction("spSetIntegrationTime", param) == -1)
         return false;
-    m_integTime = getVariableValue("spIntegTime").toInt();
+    m_integTime = getVariableValue("spIntegrationTime").toInt();
 
     return true;
+}
+
+bool SpectronDevice::setMinBlack(double blackLevelVoltage)
+{
+    QString param;
+    if (blackLevelVoltage < 0.0)
+        param = "AUTO";
+    else
+        param.setNum(blackLevelVoltage);
+
+    if (callFunction("spSetMinBlackVoltage", param) == -1)
+        return false;
+
+    m_minVlackVoltage = getVariableValue("spMinBlackVoltage").toDouble();
+    return true;
+}
+
+// calibrate spectral response using tungsten lamp of given temperature
+bool SpectronDevice::calibrateSpectralResponse(double lampTempK, bool useLastMeasurement)
+{
+    bool success = false;
+
+    QString param;
+    param.setNum(lampTempK);
+    if (!useLastMeasurement)
+        param.append(",MEASURE");
+    if (callFunction("spCalibrateSpectralResp", param) != -1)
+    {
+        getData();
+        success = true;
+    }
+
+    return success;
 }
 
 bool SpectronDevice::measure(int measTimeUs, bool doExtTrigger)
@@ -206,15 +246,17 @@ bool SpectronDevice::measure(int measTimeUs, bool doExtTrigger)
     bool success = false;
 
     QString param;
-    param.setNum(measTimeUs);
+    if (measTimeUs > 0)
+        param.setNum(measTimeUs);
     if (doExtTrigger)
         param.append(",TRG");
     if (callFunction("spMeasure", param) != -1)
     {
-        QByteArray lastMeas = getVariableValue("spLastMeas1").toString().toUtf8();
-        lastMeas.append(getVariableValue("spLastMeas2").toString().toUtf8());
-        lastMeas.append(getVariableValue("spLastMeas3").toString().toUtf8());
-        success = translateFloatArray(lastMeas, m_lastMeasurement, m_totalPixels);
+        success = true;
+        if (m_applySpectralCorrection)
+            getData();
+        else
+            success = getSpectrometerData(ET_MEASUREMENT);
     }
 
     return success;
@@ -228,14 +270,10 @@ bool SpectronDevice::measureBlack(int measTimeUs, bool refreshLastMeasurement)
     if (measTimeUs > 0)
         param.setNum(measTimeUs);
 
-    // call
-    if (success = callFunction("spMeasureBlk", param) != -1
-        && refreshLastMeasurement)
+    success = callFunction("spMeasureBlack", param) != -1;
+    if (success && refreshLastMeasurement)
     {
-        QByteArray lastMeas = getVariableValue("spLastMeas1").toString().toUtf8();
-        lastMeas.append(getVariableValue("spLastMeas2").toString().toUtf8());
-        lastMeas.append(getVariableValue("spLastMeas3").toString().toUtf8());
-        success = translateFloatArray(lastMeas, m_lastMeasurement, m_totalPixels);
+        success = getSpectrometerData(ET_MEASUREMENT);
     }
 
     return success;
@@ -244,7 +282,18 @@ bool SpectronDevice::measureBlack(int measTimeUs, bool refreshLastMeasurement)
 // automatic saturation measurement
 bool SpectronDevice::measureSaturation()
 {
-    return callFunction("spSetSatVolt", "AUTO") != -1;
+    if (callFunction("spSetSaturationVoltage", "AUTO") == -1)
+        return false;
+        
+    if (m_supportsGain)
+    {
+        m_satVoltage[NO_GAIN] = getVariableValue("spNoGainSatVoltage").toDouble();
+        m_satVoltage[HIGH_GAIN] = getVariableValue("spHighGainSatVoltage").toDouble();
+    }
+    else
+        m_satVoltage[NO_GAIN] = getVariableValue("spSaturationVoltage").toDouble();
+
+    return true;
 }
 
 // automatic measurement - determines the best integration time
@@ -260,19 +309,89 @@ bool SpectronDevice::measureAuto(TAutoType autoType)
 
     if (callFunction("spMeasure", param) != -1)
     {
-        QByteArray lastMeas = getVariableValue("spLastMeas1").toString().toUtf8();
-        lastMeas.append(getVariableValue("spLastMeas2").toString().toUtf8());
-        lastMeas.append(getVariableValue("spLastMeas3").toString().toUtf8());
-        success = translateFloatArray(lastMeas, m_lastMeasurement, m_totalPixels);
+        success = true;
+        if (m_applySpectralCorrection)
+            getData();
+        else
+            success = getSpectrometerData(ET_MEASUREMENT);
 
         // refresh variables
         m_adcRef = (TAdcRef)getVariableValue("spADCRef").toInt();
         if (m_supportsGain)
             m_gain = (TGain)getVariableValue("spGain").toInt();
-        m_integTime = getVariableValue("spIntegTime").toInt();
+        m_integTime = getVariableValue("spIntegrationTime").toInt();
     }
 
     return success;
+}
+
+bool SpectronDevice::setSpectralRange(TRangeType rangeType, int minWavelength, int maxWavelength)
+{
+    QString param;
+    if (rangeType == RT_EXPLICIT)
+        param.setNum(minWavelength)
+            .append(",")
+            .append(QString().setNum(maxWavelength));
+    else if (rangeType == RT_MAX)
+        param = "MAX";
+    else
+        param = "DEFAULT";
+
+    if (callFunction("spSetSpectralRange", param) == -1)
+        return false;
+    
+    // retrieve new range parameters and clear measurement
+    m_totalPixels = getVariableValue("spNumPixels").toInt();
+    m_pixelOffsetIdx = getVariableValue("spPixelOffsetIdx").toInt();
+    m_lastMeasurement.clear();
+
+    return true;
+}
+
+// reset all spectrometer setup parameters to their defaults
+bool SpectronDevice::resetToDefaults()
+{
+    bool success = false;
+
+    if (callFunction("spResetToDefaults", "") != -1)
+    {
+        success = refresh();
+        m_lastMeasurement.clear();
+    }
+
+    return success;
+}
+
+// get the pixel data from spectrometer  - measurement, black levels or normalisation
+bool SpectronDevice::getSpectrometerData(TDataType dataType)
+{
+    bool success = false;
+
+    QString param;
+    if (dataType == ET_BLACK_LEVELS)
+        param = "BLACK_LEVELS";
+    else if (dataType == ET_NORMALISATION)
+        param = "NORMALISATION";
+    else if (m_applySpectralCorrection)
+        param = "MEAS_NORMALISED";
+    else
+        param = "MEASUREMENT";
+    if (callFunction("spGetData", param) != -1)
+    {
+        getData();
+        success = true;
+    }
+
+    return success;
+}
+
+// gets the measurement data
+void SpectronDevice::getData()
+{
+    QByteArray lastMeas = getVariableValue("spData1").toString().toUtf8();
+    lastMeas.append(getVariableValue("spData2").toString().toUtf8());
+    lastMeas.append(getVariableValue("spData3").toString().toUtf8());
+    m_maxLastMeasuredValue = translateFloatArray(lastMeas, m_lastMeasurement, m_totalPixels);
 }
 
 // get bandpass corrected (or not) measurement result
@@ -285,11 +404,25 @@ double SpectronDevice::getLastMeasurement(int pixelNum)
     return m_lastMeasurement.at(pixelNum);
 }
 
+double SpectronDevice::getMinWavelength()
+{
+    return m_totalPixels && m_specCalibration[0]!=0.0 
+                ? getWavelength(0)
+                : 340;
+}
+
+double SpectronDevice::getMaxWavelength()
+{
+    return m_totalPixels && m_specCalibration[0]!=0.0 
+                ? getWavelength(m_totalPixels-1)
+                : 850;
+}
+
 // get the wavelength for specified pixel
 double SpectronDevice::getWavelength(int pixelNum)
 {
     // pixelNumber in formula start with 1
-    double p = pixelNum+1;
+    double p = pixelNum + m_pixelOffsetIdx + 1;
     return m_specCalibration[0]
            + (p*m_specCalibration[1])
            + (p*p*m_specCalibration[2])

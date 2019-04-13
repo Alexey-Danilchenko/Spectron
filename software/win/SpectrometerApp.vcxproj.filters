@@ -40,6 +40,9 @@
     <ClCompile Include=".\GeneratedFiles\$(ProjectName)\qrc_SpectrometerApp.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\spectron_cct.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\particle_api.h">

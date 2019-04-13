@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>875</width>
+    <width>884</width>
     <height>560</height>
    </rect>
   </property>
@@ -45,7 +45,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>:/MainForm/images/SpectrometerApp.png</normaloff>:/MainForm/images/SpectrometerApp.png</iconset>
+    <normaloff>images/SpectrometerApp.png</normaloff>images/SpectrometerApp.png</iconset>
   </property>
   <property name="documentMode">
    <bool>false</bool>
@@ -244,7 +244,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>275</width>
+          <width>300</width>
           <height>240</height>
          </size>
         </property>
@@ -254,411 +254,1056 @@
         <property name="frameShadow">
          <enum>QFrame::Sunken</enum>
         </property>
-        <widget class="QGroupBox" name="CSV">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>260</y>
-           <width>261</width>
-           <height>231</height>
-          </rect>
+        <layout class="QVBoxLayout" name="verticalLayoutCtrl" stretch="0,0,0">
+         <property name="spacing">
+          <number>9</number>
          </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Last measurement captured in CSV format&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <property name="topMargin">
+          <number>4</number>
          </property>
-         <property name="statusTip">
-          <string/>
+         <property name="bottomMargin">
+          <number>0</number>
          </property>
-         <property name="title">
-          <string>Measurement in CSV list </string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_6">
-          <item row="0" column="0">
-           <widget class="QPlainTextEdit" name="txtCSV">
-            <property name="readOnly">
-             <bool>true</bool>
+         <item>
+          <widget class="QLabel" name="lblRange">
+           <property name="font">
+            <font>
+             <pointsize>10</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="text">
+            <string>Spectral Range: not logged in</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTabWidget" name="tabs">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>310</height>
+            </size>
+           </property>
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <property name="tabBarAutoHide">
+            <bool>false</bool>
+           </property>
+           <widget class="QWidget" name="tabMeas">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Spectral measurement related parameters an actions&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
+            <attribute name="title">
+             <string>Measurement</string>
+            </attribute>
+            <widget class="QPushButton" name="btnMeasureBlack">
+             <property name="geometry">
+              <rect>
+               <x>150</x>
+               <y>240</y>
+               <width>120</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run the measurement of the black levels for the selected measurement type&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Measure Black</string>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblIntegration">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>20</y>
+               <width>111</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Integration time for the sensor in the specified units&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Integration Time</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QComboBox" name="cboxMeasResultType">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>140</y>
+               <width>71</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Resulting type of the measurement. Could be either relative (0..1 scaled to the current selected ADC voltage), direct voltage measuremment in volts or absolute (0..1 scaled to the sensor saturation voltage)&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <item>
+              <property name="text">
+               <string>Relative</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Voltage</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Absolute</string>
+              </property>
+             </item>
+            </widget>
+            <widget class="QLabel" name="lblADCRef">
+             <property name="geometry">
+              <rect>
+               <x>30</x>
+               <y>80</y>
+               <width>91</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selectable voltages for the spectrometer ADC. Allows better use of sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>ADC Voltage</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblGain">
+             <property name="geometry">
+              <rect>
+               <x>30</x>
+               <y>110</y>
+               <width>91</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gain settings for C12666MA spectrometer sensor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Gain</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblMeasureTime">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>50</y>
+               <width>111</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Measure time (always in milliseconds) for the C12880MA spectrometer sensor. This could be larger than integration time in which case multiple measurements for selected integration time will be taken. Only enabled in manual measurement mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Measure Time</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QSpinBox" name="spbIntegration">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>20</y>
+               <width>71</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Integration time for the sensor in the specified units&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>10000000</number>
+             </property>
+             <property name="singleStep">
+              <number>100</number>
+             </property>
+             <property name="value">
+              <number>100</number>
+             </property>
+            </widget>
+            <widget class="QComboBox" name="cboxUnits">
+             <property name="geometry">
+              <rect>
+               <x>210</x>
+               <y>20</y>
+               <width>61</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Integration time units: micro- or milli- seconds&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="currentText">
+              <string>uSec</string>
+             </property>
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <property name="maxVisibleItems">
+              <number>2</number>
+             </property>
+             <property name="maxCount">
+              <number>2</number>
+             </property>
+             <item>
+              <property name="text">
+               <string>uSec</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>mSec</string>
+              </property>
+             </item>
+            </widget>
+            <widget class="QComboBox" name="cboxAdcRef">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>80</y>
+               <width>72</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selectable voltages for the spectrometer ADC. Allows better use of sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="editable">
+              <bool>false</bool>
+             </property>
+             <property name="currentText">
+              <string>2.5V</string>
+             </property>
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <property name="maxVisibleItems">
+              <number>4</number>
+             </property>
+             <property name="maxCount">
+              <number>4</number>
+             </property>
+             <item>
+              <property name="text">
+               <string>2.5V</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>3V</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>4.096V</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>5V</string>
+              </property>
+             </item>
+            </widget>
+            <widget class="QLabel" name="lblMeasResType">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>140</y>
+               <width>111</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Resulting type of the measurement. Could be either relative (0..1 scaled to the current selected ADC voltage), direct voltage measuremment in volts or absolute (0..1 scaled to the sensor saturation voltage)&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Meas. Result Type</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QSpinBox" name="spbMeasureTime">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>50</y>
+               <width>71</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Measure time (always in milliseconds) for the C12880MA spectrometer sensor. This could be larger than integration time in which case multiple measurements for selected integration time will be taken. Only enabled in manual measurement mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="suffix">
+              <string> mSec</string>
+             </property>
+             <property name="minimum">
+              <number>0</number>
+             </property>
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="singleStep">
+              <number>100</number>
+             </property>
+             <property name="value">
+              <number>0</number>
+             </property>
+            </widget>
+            <widget class="QComboBox" name="cboxGain">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>110</y>
+               <width>72</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gain settings for C12666MA spectrometer sensor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <item>
+              <property name="text">
+               <string>No Gain</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>High Gain</string>
+              </property>
+             </item>
+            </widget>
+            <widget class="QLabel" name="lblMeasType">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>200</y>
+               <width>111</width>
+               <height>20</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type of the measurement taken: manual integration time (wwith above settings used), automatic integration maximizing sensor outpput for currently selected ADC voltage, automatic integration and ADC voltage minimizing integration time with maximum sensor output in that range and automatic integration and ADC voltage maximizing sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Measurement Type</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QComboBox" name="cboxMeasType">
+             <property name="geometry">
+              <rect>
+               <x>130</x>
+               <y>200</y>
+               <width>140</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type of the measurement taken: manual integration time (wwith above settings used), automatic integration maximizing sensor outpput for currently selected ADC voltage, automatic integration and ADC voltage minimizing integration time with maximum sensor output in that range and automatic integration and ADC voltage maximizing sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <item>
+              <property name="text">
+               <string>Manual</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Auto for Current Voltage</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Auto Minimum Integration</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Auto Maximum Range</string>
+              </property>
+             </item>
+            </widget>
+            <widget class="QPushButton" name="btnMeasure">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>240</y>
+               <width>120</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run the measurement of the selected measurement type&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Measure</string>
+             </property>
+            </widget>
+            <widget class="QCheckBox" name="chkbApplySpResp">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>170</y>
+               <width>141</width>
+               <height>19</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable/disable spectral response correction for the measurement. This only makes a difference when spectral response is calibrated.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="layoutDirection">
+              <enum>Qt::RightToLeft</enum>
+             </property>
+             <property name="text">
+              <string>Spec. Resp. Correction</string>
+             </property>
+            </widget>
            </widget>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QComboBox" name="cboxAdcRef">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>70</y>
-           <width>72</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selectable voltages for the spectrometer ADC. Allows better use of sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="editable">
-          <bool>false</bool>
-         </property>
-         <property name="currentText">
-          <string>2.5V</string>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <property name="maxVisibleItems">
-          <number>4</number>
-         </property>
-         <property name="maxCount">
-          <number>4</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>2.5V</string>
-          </property>
+           <widget class="QWidget" name="tabCalibr">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Spectral sensor calibration related parameters and actions&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <attribute name="title">
+             <string>Calibration</string>
+            </attribute>
+            <widget class="QPushButton" name="btnMeasSat">
+             <property name="geometry">
+              <rect>
+               <x>160</x>
+               <y>160</y>
+               <width>111</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Automatic measurement/calibration of the spectrometer sensor saturation. Point strong light source towards the specrrometer sensor and run this to calibrate the saturation. This operation typically needs to be done only once for ech spectrometer sensor.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Measure Saturation</string>
+             </property>
+            </widget>
+            <widget class="QPushButton" name="btnMeasMinBlack">
+             <property name="geometry">
+              <rect>
+               <x>160</x>
+               <y>195</y>
+               <width>110</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Automatic measurement/calibration of the spectrometer minimum sensor black level voltage. Cover the specrrometer sensor and run this to calibrate the minimal black level voltage. This operation typically needs to be done only once for ech spectrometer sensor.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Meas. Min Black</string>
+             </property>
+            </widget>
+            <widget class="QGroupBox" name="grpTk">
+             <property name="geometry">
+              <rect>
+               <x>5</x>
+               <y>5</y>
+               <width>267</width>
+               <height>141</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This section collectively has the data that allows to calibrate sensor relative spectral response.&lt;/p&gt;&lt;p&gt;The procedure expects the sensor to be exposed to stabilised tungsten light source of the specified temperature, with black levels captured, measures sensor response for selected parameters, calculates expected theoretical response (relative against largest wavelength) for Planckian blackbody corrected for tungsten source, and then calculates corrections for measured sensor response (with blacks subtracted).&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline;&quot;&gt;Procedure performed for calibration&lt;/span&gt;:&lt;/p&gt;&lt;p&gt;1) Run the tungsten light source on stabilised power supply for at least 20 mins, measuring its temperature (using voltage/current measurement, lamp resistance against lamp resistance at room temperature) - see O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details. Essentially, measure lamp parameters, type them in and press &amp;quot;Calc. Lamp Temp&amp;quot; button to calculate lamp temperature&lt;/p&gt;&lt;p&gt;2) With lamp tempearure established response calibration performed in three steps (pressing &amp;quot;Calibrate Spectral Response&amp;quot; button):&lt;/p&gt;&lt;p&gt;2a) Perform automatic measurement to capture spectrometer measurement and parameters at minumal ADC voltage and high gain for higher dynamic range&lt;/p&gt;&lt;p&gt;2b) Capture black levels with exposure parameters established by (2a)&lt;/p&gt;&lt;p&gt;2c) Calculate spectral response corrections using calculated lamp temperature at (1) for predicted response against actual measurement &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="title">
+              <string>   Spectral Response</string>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
+             </property>
+             <widget class="QDoubleSpinBox" name="spbR0">
+              <property name="geometry">
+               <rect>
+                <x>90</x>
+                <y>22</y>
+                <width>50</width>
+                <height>22</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp resistance at room temperature in Ohms. See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="maximum">
+               <double>1000.000000000000000</double>
+              </property>
+             </widget>
+             <widget class="QLabel" name="lblR0">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>22</y>
+                <width>81</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp resistance at room temperature in Ohms. See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Lamp R0, Ohm</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+             <widget class="QDoubleSpinBox" name="spbT0">
+              <property name="geometry">
+               <rect>
+                <x>90</x>
+                <y>50</y>
+                <width>50</width>
+                <height>22</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Room temperature in Celsius at which R0 was measured. See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="minimum">
+               <double>5.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>50.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>18.000000000000000</double>
+              </property>
+             </widget>
+             <widget class="QLabel" name="lblT0">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>50</y>
+                <width>81</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Room temperature in Celsius at which R0 was measured. See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Room Temp, C</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+             <widget class="QDoubleSpinBox" name="spbLampI">
+              <property name="geometry">
+               <rect>
+                <x>210</x>
+                <y>22</y>
+                <width>50</width>
+                <height>22</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp current in Amperes measured during lamp running (for at least 20 minsto reach stable temperature). See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="maximum">
+               <double>20.000000000000000</double>
+              </property>
+             </widget>
+             <widget class="QLabel" name="lblLampI">
+              <property name="geometry">
+               <rect>
+                <x>140</x>
+                <y>22</y>
+                <width>61</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp current in Amperes measured during lamp running (for at least 20 minsto reach stable temperature). See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Lamp I, A</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+             <widget class="QLabel" name="lblLampV">
+              <property name="geometry">
+               <rect>
+                <x>140</x>
+                <y>50</y>
+                <width>61</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp voltage in Volts measured during lamp running (for at least 20 minsto reach stable temperature). See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Lamp V, V</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+             <widget class="QDoubleSpinBox" name="spbLampV">
+              <property name="geometry">
+               <rect>
+                <x>210</x>
+                <y>50</y>
+                <width>50</width>
+                <height>22</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lamp voltage in Volts measured during lamp running (for at least 20 minsto reach stable temperature). See O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="decimals">
+               <number>2</number>
+              </property>
+              <property name="maximum">
+               <double>380.000000000000000</double>
+              </property>
+             </widget>
+             <widget class="QDoubleSpinBox" name="spbT">
+              <property name="geometry">
+               <rect>
+                <x>90</x>
+                <y>80</y>
+                <width>61</width>
+                <height>22</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calculated or manually set lamp temperature in Kelvins. Calculated from the above data as specified in O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot;. Could also be manually entered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="decimals">
+               <number>1</number>
+              </property>
+              <property name="minimum">
+               <double>1200.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>3000.000000000000000</double>
+              </property>
+              <property name="singleStep">
+               <double>100.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>1200.000000000000000</double>
+              </property>
+             </widget>
+             <widget class="QLabel" name="lblT">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>80</y>
+                <width>81</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calculated or manually set lamp temperature in Kelvins. Calculated from the above data as specified in O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot;. Could also be manually entered.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Lamp Temp, K</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+             <widget class="QPushButton" name="btnCalcT">
+              <property name="geometry">
+               <rect>
+                <x>159</x>
+                <y>80</y>
+                <width>101</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calculates lamp temperature in Kelvins from the above parameters as specified in O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Calc. Lamp Temp</string>
+              </property>
+             </widget>
+             <widget class="QPushButton" name="btnCalibrSpectral">
+              <property name="geometry">
+               <rect>
+                <x>10</x>
+                <y>110</y>
+                <width>141</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Performs spectrometer spectral response calibration. It is expected that lamp was hot and running for at least 20 mins and its temperature above has been calculated - see O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details. The following distinct steps are performed:&lt;/p&gt;&lt;p&gt;1) Shining lamp on diffuse reflector and pointing spectrometer towards it, performing automatic measurement to capture spectrometer measurement and parameters at minumal ADC voltage and high gain for higher dynamic range&lt;/p&gt;&lt;p&gt;2) Covering spectrometer entrance and capturing black levels with exposure parameters established by (1)&lt;/p&gt;&lt;p&gt;3) Calculating spectral response corrections using calculated lamp temperature at at specified temperature for predicted response against actual measurement &lt;/p&gt;&lt;p&gt;After the calibration the spectral response correcting factors will be output in Measurements window in CSV format.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Calibrate Spec. Response</string>
+              </property>
+             </widget>
+             <widget class="QPushButton" name="btnResetSpectralCal">
+              <property name="geometry">
+               <rect>
+                <x>160</x>
+                <y>110</y>
+                <width>101</width>
+                <height>21</height>
+               </rect>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Performs spectrometer spectral response calibration. It is expected that lamp was hot and running for at least 20 mins and its temperature above has been calculated - see O. Harang, M. J. Kosch &amp;quot;Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory&amp;quot; for details. The following distinct steps are performed:&lt;/p&gt;&lt;p&gt;1) Shining lamp on diffuse reflector and pointing spectrometer towards it, performing automatic measurement to capture spectrometer measurement and parameters at minumal ADC voltage and high gain for higher dynamic range&lt;/p&gt;&lt;p&gt;2) Covering spectrometer entrance and capturing black levels with exposure parameters established by (1)&lt;/p&gt;&lt;p&gt;3) Calculating spectral response corrections using calculated lamp temperature at at specified temperature for predicted response against actual measurement &lt;/p&gt;&lt;p&gt;After the calibration the spectral response correcting factors will be output in Measurements window in CSV format.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Reset Calibration</string>
+              </property>
+             </widget>
+            </widget>
+            <widget class="QLabel" name="lblNGStxt">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>150</y>
+               <width>101</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No gain saturation voltage for C12666 and C12880 spectrometer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>No gain saturation:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblNGSval">
+             <property name="geometry">
+              <rect>
+               <x>115</x>
+               <y>150</y>
+               <width>41</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No gain saturation voltage for C12666 and C12880 spectrometer&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>0.0 V</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblHGStxt">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>171</y>
+               <width>101</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;High gain saturation voltage for C12666 spectrometer only&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>High gain saturation:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblHGSval">
+             <property name="geometry">
+              <rect>
+               <x>115</x>
+               <y>171</y>
+               <width>41</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;High gain saturation voltage for C12666 spectrometer only&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>0.0 V</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblMinBval">
+             <property name="geometry">
+              <rect>
+               <x>115</x>
+               <y>195</y>
+               <width>41</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The spectrometer minimal black level voltage. This is usedfor all measurements when no separate black levels were captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>0.0 V</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblMinBtxt">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>195</y>
+               <width>101</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The spectrometer minimal black level voltage. This is usedfor all measurements when no separate black levels were captured.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Min Black level:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblSetRange">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>225</y>
+               <width>141</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets sensor spectral range. Sensor provided by Hamamatsu have wide coverage than the specification, but responses from the areas outside specification are not very reliable. The reduced range tuned to specific application is also better in terms of requirig less spectral response correction.&lt;/p&gt;&lt;p&gt;Changing the sensor range will invalidate spectral response calibration as well as current black levels and spectral measurement.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Sensor Spectral Range:</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+            <widget class="QPushButton" name="btnSetRange">
+             <property name="geometry">
+              <rect>
+               <x>160</x>
+               <y>255</y>
+               <width>110</width>
+               <height>21</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets sensor spectral range. Sensor provided by Hamamatsu have wide coverage than the specification, but responses from the areas outside specification are not very reliable. The reduced range tuned to specific application is also better in terms of requirig less spectral response correction.&lt;/p&gt;&lt;p&gt;Changing the sensor range will invalidate spectral response calibration as well as current black levels and spectral measurement.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Set Spec. Range</string>
+             </property>
+            </widget>
+            <widget class="QSpinBox" name="spbMinWv">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>255</y>
+               <width>60</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lower bound of sensor spectral range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="suffix">
+              <string>nm</string>
+             </property>
+             <property name="minimum">
+              <number>100</number>
+             </property>
+             <property name="maximum">
+              <number>500</number>
+             </property>
+             <property name="singleStep">
+              <number>10</number>
+             </property>
+             <property name="value">
+              <number>340</number>
+             </property>
+            </widget>
+            <widget class="QSpinBox" name="spbMaxWv">
+             <property name="geometry">
+              <rect>
+               <x>90</x>
+               <y>255</y>
+               <width>60</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Upper bound of sensor spectral range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="suffix">
+              <string>nm</string>
+             </property>
+             <property name="minimum">
+              <number>600</number>
+             </property>
+             <property name="maximum">
+              <number>1000</number>
+             </property>
+             <property name="singleStep">
+              <number>10</number>
+             </property>
+             <property name="value">
+              <number>850</number>
+             </property>
+            </widget>
+            <widget class="QLabel" name="lblDash">
+             <property name="geometry">
+              <rect>
+               <x>70</x>
+               <y>255</y>
+               <width>20</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string> - </string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+            <widget class="QComboBox" name="cbxSpRangeType">
+             <property name="geometry">
+              <rect>
+               <x>160</x>
+               <y>225</y>
+               <width>110</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type of spectral range being set by Set Spec.Range button.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline;&quot;&gt;Explicit&lt;/span&gt; - sets range explicitly defined by lower and upper bound&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline;&quot;&gt;Default&lt;/span&gt; - sets the default range defined by sensor specs&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline;&quot;&gt;Maximum&lt;/span&gt; - sets range to cover all sensor available pixels&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="maxVisibleItems">
+              <number>3</number>
+             </property>
+             <property name="maxCount">
+              <number>3</number>
+             </property>
+             <property name="insertPolicy">
+              <enum>QComboBox::NoInsert</enum>
+             </property>
+             <item>
+              <property name="text">
+               <string>Explicit</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Default</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Maximum</string>
+              </property>
+             </item>
+            </widget>
+           </widget>
+          </widget>
          </item>
          <item>
-          <property name="text">
-           <string>3V</string>
-          </property>
+          <widget class="QGroupBox" name="CSV">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Last measurement captured in CSV format&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="statusTip">
+            <string/>
+           </property>
+           <property name="title">
+            <string>Measurement in CSV list </string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_6">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetMaximumSize</enum>
+            </property>
+            <property name="leftMargin">
+             <number>2</number>
+            </property>
+            <property name="topMargin">
+             <number>2</number>
+            </property>
+            <property name="rightMargin">
+             <number>2</number>
+            </property>
+            <property name="bottomMargin">
+             <number>2</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QPlainTextEdit" name="txtCSV">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
          </item>
-         <item>
-          <property name="text">
-           <string>4.096V</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>5V</string>
-          </property>
-         </item>
-        </widget>
-        <widget class="QComboBox" name="cboxGain">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>100</y>
-           <width>72</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gain settings for C12666MA spectrometer sensor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <item>
-          <property name="text">
-           <string>No Gain</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>High Gain</string>
-          </property>
-         </item>
-        </widget>
-        <widget class="QSpinBox" name="spbIntegration">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>10</y>
-           <width>71</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Integration time for the sensor in the specified units&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>10000000</number>
-         </property>
-         <property name="singleStep">
-          <number>100</number>
-         </property>
-         <property name="value">
-          <number>100</number>
-         </property>
-        </widget>
-        <widget class="QLabel" name="lblIntegration">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>10</y>
-           <width>101</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Integration Time</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="btnMeasure">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>200</y>
-           <width>121</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run the measurement of the selected measurement type&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Measure</string>
-         </property>
-        </widget>
-        <widget class="QLabel" name="lblMeasureTime">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>40</y>
-           <width>101</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Measure Time</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QSpinBox" name="spbMeasureTime">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>40</y>
-           <width>71</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Measure time (always in milliseconds) for the C12880MA spectrometer sensor. This could be larger than integration time in which case multiple measurements for selected integration time will be taken. Only enabled in manual measurement mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="minimum">
-          <number>0</number>
-         </property>
-         <property name="maximum">
-          <number>10000</number>
-         </property>
-         <property name="singleStep">
-          <number>100</number>
-         </property>
-         <property name="value">
-          <number>0</number>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="btnMeasureBlack">
-         <property name="geometry">
-          <rect>
-           <x>150</x>
-           <y>200</y>
-           <width>111</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run the measurement of the black levels for the selected measurement type&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Measure Black</string>
-         </property>
-        </widget>
-        <widget class="QComboBox" name="cboxUnits">
-         <property name="geometry">
-          <rect>
-           <x>190</x>
-           <y>10</y>
-           <width>72</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Integration time units: micro- or milli- seconds&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="currentText">
-          <string>uSec</string>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <property name="maxVisibleItems">
-          <number>2</number>
-         </property>
-         <property name="maxCount">
-          <number>2</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>uSec</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>mSec</string>
-          </property>
-         </item>
-        </widget>
-        <widget class="QLabel" name="lblADCRef">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>70</y>
-           <width>91</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>ADC Voltage</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QLabel" name="lblMeasureUnits">
-         <property name="geometry">
-          <rect>
-           <x>190</x>
-           <y>40</y>
-           <width>71</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>mSec</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QLabel" name="lblGain">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>100</y>
-           <width>91</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Gain</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QComboBox" name="cboxMeasResultType">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>130</y>
-           <width>71</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Result ing type of the measurement. Could be either relative (0..1 scaled to the current selected ADC voltage), direct voltage measuremment in volts or absolute (0..1 scaled to the sensor saturation voltage)&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <item>
-          <property name="text">
-           <string>Relative</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Voltage</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Absolute</string>
-          </property>
-         </item>
-        </widget>
-        <widget class="QLabel" name="lblMeasType">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>130</y>
-           <width>101</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Meas. Result Type</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QComboBox" name="cboxMeasType">
-         <property name="geometry">
-          <rect>
-           <x>110</x>
-           <y>160</y>
-           <width>151</width>
-           <height>22</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type of the measurement taken: manual integration time (wwith above settings used), automatic integration maximizing sensor outpput for currently selected ADC voltage, automatic integration and ADC voltage minimizing integration time with maximum sensor output in that range and automatic integration and ADC voltage maximizing sensor output range&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <item>
-          <property name="text">
-           <string>Manual</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Auto for Current Voltage</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Auto Minimum Integration</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Auto Maximum Range</string>
-          </property>
-         </item>
-        </widget>
-        <widget class="QLabel" name="lblMeasType_2">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>160</y>
-           <width>101</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Measurement Type</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="btnMeasSat">
-         <property name="geometry">
-          <rect>
-           <x>150</x>
-           <y>230</y>
-           <width>111</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Automatic measurement/calibration of the spectrometer sensor saturation. Point strong light source towards the specrrometer sensor and run this to calibrate the saturation. This operation typically needs to be done only once for ech spectrometer sensor.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Measure Saturation</string>
-         </property>
-        </widget>
+        </layout>
        </widget>
       </item>
      </layout>
@@ -691,22 +1336,103 @@
         <property name="frameShadow">
          <enum>QFrame::Sunken</enum>
         </property>
-        <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0,0">
+        <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0,0,0,0,0,0,0,0">
          <property name="spacing">
-          <number>3</number>
+          <number>6</number>
          </property>
          <property name="leftMargin">
-          <number>3</number>
+          <number>6</number>
          </property>
          <property name="topMargin">
           <number>0</number>
          </property>
          <property name="rightMargin">
-          <number>3</number>
+          <number>6</number>
          </property>
          <property name="bottomMargin">
           <number>6</number>
          </property>
+         <item>
+          <widget class="QLabel" name="stCCT">
+           <property name="text">
+            <string>CCT:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lblCCT">
+           <property name="minimumSize">
+            <size>
+             <width>45</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="frameShadow">
+            <enum>QFrame::Plain</enum>
+           </property>
+           <property name="text">
+            <string>0 K    </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="stX">
+           <property name="text">
+            <string>x:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lblX">
+           <property name="minimumSize">
+            <size>
+             <width>55</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>0.0    </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="stY">
+           <property name="text">
+            <string>y:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lblY">
+           <property name="minimumSize">
+            <size>
+             <width>55</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>0.0    </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QLabel" name="stMaxVal">
            <property name="minimumSize">
@@ -728,7 +1454,7 @@
             <string>Peak measured value:</string>
            </property>
            <property name="alignment">
-            <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
@@ -736,7 +1462,7 @@
           <widget class="QLabel" name="lblMaxValue">
            <property name="minimumSize">
             <size>
-             <width>40</width>
+             <width>100</width>
              <height>0</height>
             </size>
            </property>
@@ -744,7 +1470,7 @@
             <string>0    </string>
            </property>
            <property name="alignment">
-            <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
           </widget>
          </item>
@@ -825,6 +1551,38 @@
 #include &lt;QtCharts/chartsnamespace.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>edtUser</tabstop>
+  <tabstop>edtPwd</tabstop>
+  <tabstop>btnLogin</tabstop>
+  <tabstop>tabs</tabstop>
+  <tabstop>spbIntegration</tabstop>
+  <tabstop>cboxUnits</tabstop>
+  <tabstop>spbMeasureTime</tabstop>
+  <tabstop>cboxAdcRef</tabstop>
+  <tabstop>cboxGain</tabstop>
+  <tabstop>cboxMeasResultType</tabstop>
+  <tabstop>chkbApplySpResp</tabstop>
+  <tabstop>cboxMeasType</tabstop>
+  <tabstop>btnMeasure</tabstop>
+  <tabstop>btnMeasureBlack</tabstop>
+  <tabstop>spbR0</tabstop>
+  <tabstop>spbT0</tabstop>
+  <tabstop>spbLampI</tabstop>
+  <tabstop>spbLampV</tabstop>
+  <tabstop>spbT</tabstop>
+  <tabstop>btnCalcT</tabstop>
+  <tabstop>btnCalibrSpectral</tabstop>
+  <tabstop>btnResetSpectralCal</tabstop>
+  <tabstop>btnMeasSat</tabstop>
+  <tabstop>btnMeasMinBlack</tabstop>
+  <tabstop>cbxSpRangeType</tabstop>
+  <tabstop>spbMinWv</tabstop>
+  <tabstop>spbMaxWv</tabstop>
+  <tabstop>btnSetRange</tabstop>
+  <tabstop>wChart</tabstop>
+  <tabstop>txtCSV</tabstop>
+ </tabstops>
  <resources>
   <include location="SpectrometerApp.qrc"/>
  </resources>

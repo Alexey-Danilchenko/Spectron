@@ -1,7 +1,7 @@
 /*
     SpectrometerApp.h - mainform class for Spectrometer application sample
 
-    Copyright 2017-2018 Alexey Danilchenko
+    Copyright 2017-2019 Alexey Danilchenko
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -71,7 +71,8 @@ private:
                     QMessageBox::StandardButtons buttons = QMessageBox::NoButton,
                     QMessageBox::StandardButton defButton = QMessageBox::NoButton);
 
-    void setOverrideCursor(const QCursor& cursor) {
+    void setOverrideCursor(const QCursor& cursor)
+    {
         if (!overrideCursorSet)
         {
             overrideCursorSet = true;
@@ -80,21 +81,21 @@ private:
         }
     }
 
-    void restoreOverrideCursor() {
+    void restoreOverrideCursor()
+    {
         if (overrideCursorSet)
         {
             overrideCursorSet = false;
             QApplication::restoreOverrideCursor();
         }
     }
-    
-    void updateAxis(SpectronDevice::TMeasType measType);
 
-
+    void updateAxis();
     void updateStats();
     void updateWidgets();
-    void readMeasurement();
-
+    void updateRanges();
+    void readMeasurement(bool doColourData, bool csvOnly=false);
+    
 private slots:
 
     void setADCRef(int idx);
@@ -102,11 +103,19 @@ private slots:
     void setUnits(int idx);
     void setMeasResultType(int idx);
     void setMeasType(int idx);
+    void tabChanged(int idx);
+    void spectralRespTypeChanged(int idx);
+    void applySpectralResponseChanged(int state);
 
     void login();
     void measure();
     void measureBlack();
     void measureSaturation();
+    void measureMinBlack();
+    void calibrateSpectralResponse();
+    void resetSpectralResponse();
+    void calculateLampTemperature();
+    void setSpectralRange();
     void saveCSV();
 };
 
