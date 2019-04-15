@@ -88,7 +88,7 @@ SpectronDevice::SpectronDevice()
     : ParticleDevice(), m_supportsGain(false),
       m_adcRef(ADC_2_5V), m_gain(NO_GAIN), m_totalPixels(256),
       m_measType(MEASURE_RELATIVE), m_integTime(0), m_extTrgDelay(0),
-      m_maxLastMeasuredValue(0.0), m_minVlackVoltage(0.0), 
+      m_maxLastMeasuredValue(0.0), m_minVlackVoltage(0.0),
       m_applySpectralCorrection(true), m_pixelOffsetIdx(0)
 {
     for (int i=0; i<6; i++)
@@ -105,6 +105,21 @@ SpectronDevice::~SpectronDevice()
 SpectronDevice& SpectronDevice::operator=(ParticleDevice& device)
 {
     ParticleDevice::operator=(device);
+    m_supportsGain = false;
+    m_adcRef = ADC_2_5V;
+    m_gain = NO_GAIN;
+    m_totalPixels = 256;
+    m_measType = MEASURE_RELATIVE;
+    m_integTime = 0;
+    m_extTrgDelay = 0;
+    m_maxLastMeasuredValue = 0.0;
+    m_minVlackVoltage = 0.0;
+    m_applySpectralCorrection = true;
+    m_pixelOffsetIdx = 0;
+    for (int i=0; i<6; i++)
+        m_specCalibration[i] = 0.0;
+    m_satVoltage[0] = m_satVoltage[1] = 5.0;
+
     return *this;
 }
 
@@ -284,7 +299,7 @@ bool SpectronDevice::measureSaturation()
 {
     if (callFunction("spSetSaturationVoltage", "AUTO") == -1)
         return false;
-        
+
     if (m_supportsGain)
     {
         m_satVoltage[NO_GAIN] = getVariableValue("spNoGainSatVoltage").toDouble();
@@ -339,7 +354,7 @@ bool SpectronDevice::setSpectralRange(TRangeType rangeType, int minWavelength, i
 
     if (callFunction("spSetSpectralRange", param) == -1)
         return false;
-    
+
     // retrieve new range parameters and clear measurement
     m_totalPixels = getVariableValue("spNumPixels").toInt();
     m_pixelOffsetIdx = getVariableValue("spPixelOffsetIdx").toInt();
@@ -406,14 +421,14 @@ double SpectronDevice::getLastMeasurement(int pixelNum)
 
 double SpectronDevice::getMinWavelength()
 {
-    return m_totalPixels && m_specCalibration[0]!=0.0 
+    return m_totalPixels && m_specCalibration[0]!=0.0
                 ? getWavelength(0)
                 : 340;
 }
 
 double SpectronDevice::getMaxWavelength()
 {
-    return m_totalPixels && m_specCalibration[0]!=0.0 
+    return m_totalPixels && m_specCalibration[0]!=0.0
                 ? getWavelength(m_totalPixels-1)
                 : 850;
 }
