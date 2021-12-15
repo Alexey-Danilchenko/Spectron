@@ -32,7 +32,8 @@ Eye excitation results in the sensation of colour, that is in human colour perce
 **SRF** - _spectral response function_ (aka spectral sensitivity). Here it is used to predict the sensor raw RGB response when the sensor is excited by a light of the given wavelength falling on it.
 
 SRF for a sensor is much like an observer colour matching functions for human perception; in both cases responses are additive, that is the total response to an SPD falling on the sensor / receptor is the sum of responses to individual pairs 'wavelength - intensity'.
-We will use \<cam observer\> for SRFs.
+
+We will use **\<cam observer\>** for SRFs.
 
 ## Computation method
 
