@@ -45,8 +45,8 @@ We will be using \<cam observer\> over a simulated excitation SPD in order to ob
 
 
 ### Inputs
-- **simulated spectral excitation** - some set of spectral data that excites the receptors (the sensor and the eye). It can be a product of some reference spectral reflection data and some light SPD, or SPDs of a multitude of coloured lights / filtered lights
-- **sensor SRF** (camera observer)
+- simulated spectral excitation - some set of spectral data that excites the receptors (the sensor and the eye). It can be a product of some reference spectral reflection data and some light SPD, or SPDs of a multitude of coloured lights / filtered lights
+- sensor SRF (camera observer)
 - the human perception (CIE XYZ data) of that spectral data (to be determined using the standard colorimetry formulae)
 - the camera perception (raw RGB) of that spectral data (predicted trough the sensor SRF / camera observer)
 
@@ -54,22 +54,26 @@ We will be using \<cam observer\> over a simulated excitation SPD in order to ob
 - a colour transform between raw RGB and XYZ colorimetric space, can be a 3x3 matrix, can be something more complex
 
 ### Let
-- **\<scene light SPD\>** be a known / asserted light in a scene for which we want to calculate the colour transform
-- **\<calibration target sd\>** be spectral reflection data of a real / synthetic calibration target
-- **\<human observer\>** be the observer used to render \<calibration target sd\> to XYZ
+- *\<scene light SPD\>* be a known / asserted light in a scene for which we want to calculate the colour transform
+- *\<calibration target sd\>* be spectral reflection data of a real / synthetic calibration target
+- *\<human observer\>* be the observer used to render \<calibration target sd\> to XYZ
 
 To determine the raw RGB, we will be rendering the sensor excitation through the camera observer.
 
 XYZ (human perception) is:
+
     *\<calibration target XYZ\>* = *\<scene light SPD\>* * *\<calibration target sd\>* * *\<human observer\>*
 
-From the camera side, with *\<calibration target sd\>* in \[0 .. 1\] domain,
+From the camera side, with *\<calibration target sd\>* in \[0 .. 1\] domain
+
     *\<simulated sensor excitation\>* = *\<calibration target sd\>* * *\<scene light SPD\>*
 
-By definition,
+By definition
+
     *\<sensor excitation\>* * *\<cam observer\>* = *\<raw RGB\>*
 
-Thus,
+Thus
+
     *\<simulated raw RGB\>* = *\<simulated sensor excitation\>* * *\<cam observer\>*
 
 Having *\<calibration target XYZ\>* and *\<simulated raw RGB\>* we can proceed to calculate a colour transform.
