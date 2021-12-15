@@ -62,19 +62,19 @@ To determine the raw RGB, we will be rendering the sensor excitation through the
 
 XYZ (human perception) is:
 
-    *\<calibration target XYZ\>* = *\<scene light SPD\>* * *\<calibration target sd\>* * *\<human observer\>*
+> *\<calibration target XYZ\>* = *\<scene light SPD\>* * *\<calibration target sd\>* * *\<human observer\>*
 
 From the camera side, with *\<calibration target sd\>* in \[0 .. 1\] domain
 
-    *\<simulated sensor excitation\>* = *\<calibration target sd\>* * *\<scene light SPD\>*
+> *\<simulated sensor excitation\>* = *\<calibration target sd\>* * *\<scene light SPD\>*
 
 By definition
 
-    *\<sensor excitation\>* * *\<cam observer\>* = *\<raw RGB\>*
+> *\<sensor excitation\>* * *\<cam observer\>* = *\<raw RGB\>*
 
 Thus
 
-    *\<simulated raw RGB\>* = *\<simulated sensor excitation\>* * *\<cam observer\>*
+> *\<simulated raw RGB\>* = *\<simulated sensor excitation\>* * *\<cam observer\>*
 
 Having *\<calibration target XYZ\>* and *\<simulated raw RGB\>* we can proceed to calculate a colour transform.
 
