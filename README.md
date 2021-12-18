@@ -2,7 +2,7 @@
 
 Spectron - an open source project for measuring and obtaining digital devices spectral sensitivity curves
 
-Copyright (C) 2014-2018 [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
+Copyright (C) 2014-Now [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
 
 *This is a work in progress*
 
