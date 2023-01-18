@@ -1,6 +1,6 @@
 # LED Light Source
 
-The LED light source component uses [Yuji LEDs](https://store.yujiintl.com/). More specifically their VTC (CRI 98) LEDs in [COB package for 5600K](YJWJ040-1.0_YJ-VTC-135L-G01.pdf) correlated colour temperature. A package of 4xVTC LED COBs clustered together is used for this light source. For more technical details on individual COB specifications see [Yuji LED web store](https://store.yujiintl.com/collections/vtc-series/products/vtc-series-high-cri-cob-led-135l-pack-5-pcs?variant=45426214099).
+The LED light source component uses [Yuji LEDs](https://store.yujiintl.com/). More specifically their VTC (CRI 98) LEDs in [COB package for 5600K](YJWJ040-1.0_YJ-VTC-135L-G01.pdf) correlated colour temperature. A package of 4xVTC LED COBs clustered together is used for this light source. For more technical details on individual COB specifications see [Yuji LED web store](https://store.yujiintl.com/collections/led-cobs/products/yujileds-cri-98-9w-cob-led-135l).
 
 These LEDs were chosen for the broad spectrum coverage they provide. An example of spectral response captured from the LEDs used in this setup ([also available as .CSV file](VTC5600_spectrum.csv)):
 
