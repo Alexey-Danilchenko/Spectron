@@ -1,7 +1,7 @@
 /*
  *  DRV8884.h - Texas Instruments DRV8884 driver for Motor board.
  *
- *  Copyright 2017 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2017-2018 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,12 +28,25 @@
 // without resistor if no fine control over output current
 // is needed. In this case full current is enabled by
 // configuring PREF pin as INPUT_PULLDOWN - this enables
-// max DRV8884 curret output (1A). If your board does this
+// max DRV8884 current output (1A). If your board does this
 // disable (comment out) the definition below.
-#define DRV8884_PREF_DAC_CONTROL_ENABLED
+
+//#define DRV8884_PREF_DAC_CONTROL_ENABLED
 
 // No pin assigned
+#ifndef NO_PIN
 #define NO_PIN (TOTAL_PINS+1)
+#endif
+
+// Uncomment if your hardware has rotary encoder attached
+//#define ROTARY_ENCODER_ENABLED
+
+// EEPROM base address and area size used by this class
+// (base address should be defined externally)
+#ifndef EEPROM_DRV8884_BASE_ADDR
+#define EEPROM_DRV8884_BASE_ADDR  0
+#endif
+#define EEPROM_DRV8884_SIZE       36
 
 // Direction (see DRV8884 spec sheet)
 enum dir_t {
@@ -86,23 +99,27 @@ private:
     uint8_t pinNfault_, pinDecay_, pinTRQ_, pinM0_, pinM1_, pinDir_, pinStep_;
     uint8_t pinEnable_, pinNsleep_, pinPREF_;
 
+#ifdef ROTARY_ENCODER_ENABLED
     // These are rotary encoder pins for counting ups and downs. Not used
     // for currently but could be used to double check on precision of
     // stepper movements
     uint8_t pinUpCLK_, pinDownCLK_;
+#endif
 
     // Variables
     bool     isRunning_;       // Is the motor currently running
     int      minPos_;          // Minimum allowed position - lower limit
     int      maxPos_;          // Maximum allowed position - upper limit
-    int      curPos_;          // Current position
+    int      curPosFullSteps_; // Current position in full steps (curPos_*fullStepsPerPos_)
     int      fullStepsPerPos_; // Full steps per one position
+#ifdef ROTARY_ENCODER_ENABLED
     int      rotaryCounter_;   // Current position
+#endif
     int      decayMode_;       // Current decay mode
     int      torqueMode_;      // Current torque mode
     int      steppingMode_;    // Current stepping mode
     int      direction_;       // Current direction
-    int      stepsPerSec_;     // Current rotation speed 
+    int      stepsPerSec_;     // Current rotation speed
 
 #ifdef DRV8884_PREF_DAC_CONTROL_ENABLED
     int      prefDAC_;      // Current PREF setting
@@ -121,11 +138,16 @@ public:
     //     enable       - DRV8884 motor enablement pin
     //     nsleep       - DRV8884 sleep pin
     //     pref         - DRV8884 current limit control pin
+    // Next two - only if your hardware supports rotary encoder
     //     up_clk       - LS7083 up clock pin
     //     down_clk     - LS7083 down clock pin
     DRV8884(uint8_t nfault, uint8_t decay, uint8_t trq, uint8_t m0, uint8_t m1,
-            uint8_t dir, uint8_t step, uint8_t enable, uint8_t nsleep, uint8_t pref,
-            uint8_t up_clk, uint8_t down_clk);
+            uint8_t dir, uint8_t step, uint8_t enable, uint8_t nsleep, uint8_t pref
+#ifdef ROTARY_ENCODER_ENABLED
+            , uint8_t up_clk, uint8_t down_clk
+#endif
+    );
+
     ~DRV8884();
 
     // Setup methods and setters
@@ -134,15 +156,19 @@ public:
     // Move number of positions in the current direction. By default this will
     // not move past origin (min position). Specifying allowBeyondLimits
     // will allow to ignore that (it should be used for calibration)
-    void movePositions(uint32_t positions, bool allowBeyondLimits = false);
+    //
+    // Number of positions to move is fractional to allow finer control over of
+    // the positions to move. This allows using individual steps within
+    // single position and normally used for adjustments.
+    void movePositions(float positions, bool allowBeyondLimits = false);
 
     // Reset postion (set the cur pos to specified value)
-    void resetPosition(int curPos);
+    void resetPosition(float curPos);
 
     // Various setters
 
     // Sets number of full motor steps per one position unit. The postions
-    // are used to move motor and are not dependent to a selected step mode 
+    // are used to move motor and are not dependent to a selected step mode
     // or size.
     void setStepsPerPosition(int stepsPerPosition, bool storeInEeprom = true);
 
@@ -161,25 +187,26 @@ public:
 
     // Set direction
     void setDirection(dir_t direction);
-    
+
     // Set rotation speed
     bool setRotationSpeed(int stepsPerSec, bool storeInEeprom = true);
 
 #ifdef DRV8884_PREF_DAC_CONTROL_ENABLED
     // Get/Set the current limit via DAC controlled PREF (see DRV8884 spec sheet)
     void    setPREF(pref_t prefDAC);
-    pref_t  getPREF() { return prefDAC_; }
+    pref_t  getPREF() { return (pref_t)prefDAC_; }
 #endif
 
     // Getters
-    int      getCurPos()        { return curPos_; }
-    int      getMaxPos()        { return maxPos_; }
-    int      getMinPos()        { return minPos_; }
-    decay_t  getDecayMode()     { return (decay_t)decayMode_; }
-    torque_t getTorque()        { return (torque_t)torqueMode_; }
-    step_t   getSteppingMode()  { return (step_t)steppingMode_; }
-    dir_t    getDirection()     { return (dir_t)direction_; }
-    int      getRotationSpeed() { return stepsPerSec_; }
-    bool     isRunning()        { return isRunning_; }
+    double   getCurPos()          { return ((double)curPosFullSteps_)/fullStepsPerPos_; }
+    int      getMaxPos()          { return maxPos_; }
+    int      getMinPos()          { return minPos_; }
+    int      getFullStepsPerPos() { return fullStepsPerPos_; }
+    decay_t  getDecayMode()       { return (decay_t)decayMode_; }
+    torque_t getTorque()          { return (torque_t)torqueMode_; }
+    step_t   getSteppingMode()    { return (step_t)steppingMode_; }
+    dir_t    getDirection()       { return (dir_t)direction_; }
+    int      getRotationSpeed()   { return stepsPerSec_; }
+    bool     isRunning()          { return isRunning_; }
 };
 #endif

@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2024
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Spectron", "Spectron.vcxproj", "{94C9C812-3948-4F7C-AB9F-7D38045E64FF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Debug|Win32.Build.0 = Debug|Win32
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Debug|x64.ActiveCfg = Debug|x64
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Debug|x64.Build.0 = Debug|x64
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Release|Win32.ActiveCfg = Release|Win32
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Release|Win32.Build.0 = Release|Win32
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Release|x64.ActiveCfg = Release|x64
+		{94C9C812-3948-4F7C-AB9F-7D38045E64FF}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {64AC987A-9046-4B55-B4AA-33F39750E836}
+	EndGlobalSection
+EndGlobal

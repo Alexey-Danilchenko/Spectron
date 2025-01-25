@@ -2,7 +2,7 @@
 
 Spectron - an open source project for measuring and obtaining digital devices spectral sensitivity curves
 
-Copyright (C) 2014-Now [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
+Copyright (C) 2014-2018 [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com), [Iliah Borg](mailto:iliah.i.borg@gmail.com)
 
 *This is a work in progress*
 
@@ -10,10 +10,9 @@ Copyright (C) 2014-Now [Alexey Danilchenko](mailto:alexey.danilchenko@gmail.com)
 
 This is the second generation of the open source Spectron project.  Initially this was conceived with the goal of constructing an automated device with an aid to accurately measure spectral sensitivity curves for digital camera sensors. The project has a broader use though and can be used to measure spectral sensitivity curves of various light sensitive sensors (not just camera sensors) - for example spectral sensitivity curves of photodiodes.
 
-The main goal however is still to aid measurement of spectral sensitivity of digital cameras sensors and this is what this project and documentation will be aimed towards. For more details on the application of that and the ultimate reasons _why_ please [read this](CameraSRF.md).
+The main goal however is still to aid measurement of spectral sensitivity of digital cameras sensors and this is what this project and documentation will be aimed towards.
 
 The second generation of Spectron board was produced with the more accurate spectral readings in mind, better analogue circuitry to drive Hamamatsu spectrometers and more stable measurement results.
-
 
 # Concept
 
@@ -31,7 +30,7 @@ The hardware for the above concept consists of the light source (LED or pulsed  
 
 With the precise intensity control of the LED light source, the whole system is essentially providing tunable monochromatic light source covering the entire visible range.
 
-All hardware component boards use [Particle Photon controllers](https://docs.particle.io/datasheets/wi-fi/photon-datasheet/) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud (the latter is more responsive).
+All hardware component boards use [Particle Photon controllers](https://www.particle.io/products/hardware/photon-wifi-dev-kit) at their core to drive the functionality. Overall application control is performed from Windows/Mac application running on a computer operating the boards via Particle or local cloud (the latter is more responsive).
 
 Boards used for all individual components can be of course utilised for standalone projects - see corresponding sections for details.
 

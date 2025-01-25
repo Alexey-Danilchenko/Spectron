@@ -7,7 +7,7 @@
  *                encoder are developed - no confirmation code is
  *                implemented.
  *
- *  Copyright 2017 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2017-2018 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,18 +27,16 @@
 
 #include "DRV8884.h"
 
-// EEPROM addresses
-#define EEPROM_CUR_POS_ADDR         0
-#define EEPROM_MIN_POS_ADDR         4
-#define EEPROM_MAX_POS_ADDR         8
-#define EEPROM_ROTARY_ADDR          12
-#define EEPROM_DECAY_ADDR           16
-#define EEPROM_TIMER_PER_ADDR       20
-#define EEPROM_TRQ_ADDR             24
-#define EEPROM_STEP_ADDR            28
-#define EEPROM_STEPS_PER_POS_ADDR   32
-
-#define EEPROM_FREE_ADDR            36  // free address for application usage
+// EEPROM addresses used by this class
+#define EEPROM_CUR_POS_ADDR         EEPROM_DRV8884_BASE_ADDR
+#define EEPROM_MIN_POS_ADDR         EEPROM_DRV8884_BASE_ADDR+4
+#define EEPROM_MAX_POS_ADDR         EEPROM_DRV8884_BASE_ADDR+8
+#define EEPROM_ROTARY_ADDR          EEPROM_DRV8884_BASE_ADDR+12
+#define EEPROM_DECAY_ADDR           EEPROM_DRV8884_BASE_ADDR+16
+#define EEPROM_TIMER_PER_ADDR       EEPROM_DRV8884_BASE_ADDR+20
+#define EEPROM_TRQ_ADDR             EEPROM_DRV8884_BASE_ADDR+24
+#define EEPROM_STEP_ADDR            EEPROM_DRV8884_BASE_ADDR+28
+#define EEPROM_STEPS_PER_POS_ADDR   EEPROM_DRV8884_BASE_ADDR+32
 
 //
 // Timer prescaler - this is what CPU counter clock frequency is divided by to get the frequency
@@ -64,7 +62,9 @@ static volatile state_t drvState      = STATE_STOP;
 static bool             drvCLK        = LOW;
 static int32_t          drvPulsesCount  = 0;
 static volatile bool    timerOn       = false;
+#ifdef ROTARY_ENCODER_ENABLED
 static volatile int32_t rotaryCounter = false;
+#endif
 
 // Driver pins
 uint8_t drvPinCLK  = NO_PIN;
@@ -91,6 +91,7 @@ static const int fullStepMultiplier[] = {
 // ----------------------------------------------------
 //   Timer clock and pins interrupt handling routines
 // ----------------------------------------------------
+#ifdef ROTARY_ENCODER_ENABLED
 void rotaryUp(void)
 {
     ++rotaryCounter;
@@ -100,6 +101,7 @@ void rotaryDown(void)
 {
     --rotaryCounter;
 }
+#endif
 
 void drvClockInterrupt(void)
 {
@@ -195,8 +197,11 @@ void stopDrvTimer()
 
 // Constructor/destructor
 DRV8884::DRV8884(uint8_t nfault, uint8_t decay, uint8_t trq, uint8_t m0, uint8_t m1,
-                 uint8_t dir, uint8_t step, uint8_t enable, uint8_t nsleep, uint8_t pref,
-                 uint8_t up_clk, uint8_t down_clk)
+                 uint8_t dir, uint8_t step, uint8_t enable, uint8_t nsleep, uint8_t pref
+#ifdef ROTARY_ENCODER_ENABLED
+                 , uint8_t up_clk, uint8_t down_clk
+#endif
+                 )
 {
     pinNfault_  = nfault;
     pinDecay_   = decay;
@@ -208,8 +213,11 @@ DRV8884::DRV8884(uint8_t nfault, uint8_t decay, uint8_t trq, uint8_t m0, uint8_t
     pinEnable_  = enable;
     pinNsleep_  = nsleep;
     pinPREF_    = pref;
+#ifdef ROTARY_ENCODER_ENABLED
     pinUpCLK_   = up_clk;
     pinDownCLK_ = down_clk;
+#endif
+
     drvState    = STATE_STOP;
     drvCLK      = LOW;
 
@@ -221,10 +229,10 @@ DRV8884::DRV8884(uint8_t nfault, uint8_t decay, uint8_t trq, uint8_t m0, uint8_t
     direction_    = DIR_FORWARD;
 
     // read position details from EPROM
-    EEPROM.get(EEPROM_CUR_POS_ADDR, curPos_);
-    if (curPos_ == 0xFFFFFFFF)
-        // EEPROM was empty
-        curPos_ = 0;
+    EEPROM.get(EEPROM_CUR_POS_ADDR, curPosFullSteps_);
+    if (curPosFullSteps_ < 0 || curPosFullSteps_ == 0xFFFFFFFF)
+        // initialise
+        curPosFullSteps_ = 0;
 
     EEPROM.get(EEPROM_MIN_POS_ADDR, minPos_);
     if (minPos_ == 0xFFFFFFFF)
@@ -236,37 +244,39 @@ DRV8884::DRV8884(uint8_t nfault, uint8_t decay, uint8_t trq, uint8_t m0, uint8_t
         // EEPROM was empty
         maxPos_ = 0;
 
-    EEPROM.get(EEPROM_ROTARY_ADDR, rotaryCounter_);
-    if (rotaryCounter_ == 0xFFFFFFFF)
-        // EEPROM was empty
-        rotaryCounter_ = curPos_;
-
     EEPROM.get(EEPROM_DECAY_ADDR, decayMode_);
     if (decayMode_ < 0  || decayMode_ > 3)
-        // EEPROM was empty
+        // initialise
         decayMode_ = DECAY_SLOW_MIXED;
 
     EEPROM.get(EEPROM_TIMER_PER_ADDR, stepsPerSec_);
-    if (stepsPerSec_ == 0xFFFFFFFF)
-        // EEPROM was empty
+    if (stepsPerSec_ <=0 || stepsPerSec_ > 0xFFFF)
+        // initialise
         setRotationSpeed(50);
     else
         setRotationSpeed(stepsPerSec_, false);
 
     EEPROM.get(EEPROM_TRQ_ADDR, torqueMode_);
-    if (torqueMode_ == 0xFFFFFFFF)
-        // EEPROM was empty
+    if (torqueMode_ < 0 || torqueMode_ > 2)
+        // initialise
         torqueMode_ = TORQUE_FULL;
 
     EEPROM.get(EEPROM_STEP_ADDR, steppingMode_);
-    if (steppingMode_ == 0xFFFFFFFF)
-        // EEPROM was empty
+    if (steppingMode_ < 0 || steppingMode_ > 6)
+        // initialise
         steppingMode_ = STEP_FULL;
 
     EEPROM.get(EEPROM_STEPS_PER_POS_ADDR, fullStepsPerPos_);
-    if (fullStepsPerPos_ == 0xFFFFFFFF)
-        // EEPROM was empty
+    if (fullStepsPerPos_ <= 0 || fullStepsPerPos_ >= 0xFFFF)
+        // initialise
         fullStepsPerPos_ = 1;
+
+#ifdef ROTARY_ENCODER_ENABLED
+    EEPROM.get(EEPROM_ROTARY_ADDR, rotaryCounter_);
+    if (rotaryCounter_ < 0 || rotaryCounter_ == 0xFFFFFFFF)
+        // initialise
+        rotaryCounter_ = getCurPos();
+#endif
 }
 
 DRV8884::~DRV8884()
@@ -291,8 +301,11 @@ void DRV8884::begin()
     pinMode(pinPREF_,   INPUT_PULLDOWN);  // this is to connect it via resistor to the ground
 #endif
     pinMode(pinNfault_, INPUT_PULLUP);
+
+#ifdef ROTARY_ENCODER_ENABLED
     pinMode(pinUpCLK_,  INPUT_PULLDOWN);
     pinMode(pinDownCLK_,INPUT_PULLDOWN);
+#endif
 
     // reset everything
     pinResetFast(pinEnable_);
@@ -312,35 +325,35 @@ void DRV8884::begin()
     analogWrite(pinDecay_, decayDAC[decayMode_]);
     setTorque((torque_t)torqueMode_, false);
     setSteppingMode((step_t)steppingMode_, false);
-
-    // register particle variables
-    Particle.variable("drvCurPos",    curPos_);
-    Particle.variable("drvFStpPrPos", fullStepsPerPos_);
-    Particle.variable("drvMinPos",    minPos_);
-    Particle.variable("drvMaxPos",    maxPos_);
-    Particle.variable("drvRotaryPos", rotaryCounter_);
-    Particle.variable("drvStepMode",  steppingMode_);
-    Particle.variable("drvDecayMod",  decayMode_);
-    Particle.variable("drvStepsSec",  stepsPerSec_);
-    Particle.variable("drvTrqMode",   torqueMode_);
 }
 
 // Move number of positions in the current direction. By default this will
 // not move past origin (min position). Specifying allowBeyondLimits
 // will allow to ignore that (it should be used for calibration)
-void DRV8884::movePositions(uint32_t positions, bool allowBeyondLimits)
+//
+// Number of positions to move is fractional to allow finer control over of
+// the positions to move. This allows using individual steps within
+// single position and normally used for adjustments.
+void DRV8884::movePositions(float positions, bool allowBeyondLimits)
 {
-    if (isRunning_ || timerOn || positions == 0)
+    uint32_t steps = positions*fullStepsPerPos_;
+
+    if (isRunning_ || timerOn || steps <= 0)
         return;
 
     isRunning_ = true;
 
+    uint32_t minPosFullSteps = minPos_*fullStepsPerPos_;
+    uint32_t maxPosFullSteps = maxPos_*fullStepsPerPos_;
+
     // check against the steps beyond limits
     if (!allowBeyondLimits)
-        if (direction_ == DIR_REVERSE && curPos_ < minPos_ + positions)
-            positions = curPos_ - minPos_;
-        else if (direction_ == DIR_FORWARD && curPos_ > maxPos_ - positions)
-            positions = maxPos_ - curPos_;
+        if (direction_ == DIR_REVERSE
+            && curPosFullSteps_ < minPosFullSteps + steps)
+            steps = curPosFullSteps_ - minPosFullSteps;
+        else if (direction_ == DIR_FORWARD
+                 && curPosFullSteps_ > maxPosFullSteps - steps)
+            steps = maxPosFullSteps - curPosFullSteps_;
 
     // reset
     pinResetFast(pinStep_);
@@ -349,15 +362,17 @@ void DRV8884::movePositions(uint32_t positions, bool allowBeyondLimits)
     pinSetFast(pinEnable_);
     pinSetFast(pinNsleep_);
 
+#ifdef ROTARY_ENCODER_ENABLED
     // set rotary
     rotaryCounter = rotaryCounter_;
 
     // attach rotary pin interrupts
     attachInterrupt(pinUpCLK_,   rotaryUp,   RISING, 3);
     attachInterrupt(pinDownCLK_, rotaryDown, RISING, 3);
+#endif
 
     // start the timer
-    int32_t driveSteps = positions*fullStepsPerPos_*fullStepMultiplier[steppingMode_];
+    int32_t driveSteps = steps*fullStepMultiplier[steppingMode_];
     startDrvTimer(driveSteps*2);
 
     // loop until state machine is running
@@ -367,19 +382,21 @@ void DRV8884::movePositions(uint32_t positions, bool allowBeyondLimits)
     // stop the timer
     stopDrvTimer();
 
+#ifdef ROTARY_ENCODER_ENABLED
     // detach pin interrupts
     detachInterrupt(pinUpCLK_);
     detachInterrupt(pinDownCLK_);
 
     rotaryCounter_ = rotaryCounter;
+#endif
 
     // adjust the current position
     if (pinReadFast(pinNfault_) == HIGH)
     {
         if (direction_ == DIR_FORWARD)
-            curPos_ += positions;
+            curPosFullSteps_ += steps;
         else
-            curPos_ -= positions;
+            curPosFullSteps_ -= steps;
     }
 
     // sleep
@@ -387,8 +404,10 @@ void DRV8884::movePositions(uint32_t positions, bool allowBeyondLimits)
     pinResetFast(pinNsleep_);
 
     // store the position and counter in EEPROM
-    EEPROM.put(EEPROM_CUR_POS_ADDR, curPos_);
+    EEPROM.put(EEPROM_CUR_POS_ADDR, curPosFullSteps_);
+#ifdef ROTARY_ENCODER_ENABLED
     EEPROM.put(EEPROM_ROTARY_ADDR, rotaryCounter_);
+#endif
 
     // reset guard
     isRunning_ = false;
@@ -402,11 +421,17 @@ void DRV8884::setStepsPerPosition(int stepsPerPosition, bool storeInEeprom)
     if (isRunning_ || timerOn || stepsPerPosition <= 0)
         return;
 
+    // maintain position
+    double curPos = getCurPos();
     fullStepsPerPos_ = stepsPerPosition;
+    curPosFullSteps_ = curPos * fullStepsPerPos_;
 
     // store them in EEPROM
     if (storeInEeprom)
+    {
         EEPROM.put(EEPROM_STEPS_PER_POS_ADDR, fullStepsPerPos_);
+        EEPROM.put(EEPROM_CUR_POS_ADDR, curPosFullSteps_);
+    }
 }
 
 // Set position limits - this is performed once when calibration is done
@@ -426,7 +451,7 @@ void DRV8884::setLimits(int minPos, int maxPos)
 
 #ifdef DRV8884_PREF_DAC_CONTROL_ENABLED
 // Set the current limit via DAC controlled PREF (see DRV8884 spec sheet)
-void DRV8884::setPREF(int prefDAC)
+void DRV8884::setPREF(pref_t prefDAC)
 {
     if (isRunning_ || timerOn ||
         prefDAC < PREF_DAC_FULL_CURRENT ||
@@ -547,16 +572,21 @@ bool DRV8884::setRotationSpeed(int stepsPerSec, bool storeInEeprom)
     return true;
 }
 
-// Reset postion to origin (set the cur pos to 0)
-void DRV8884::resetPosition(int curPos)
+// Reset postion to origin (set the cur pos to specified one)
+void DRV8884::resetPosition(float curPos)
 {
-    if (isRunning_ || timerOn)
+    if (isRunning_ || timerOn || curPos < 0)
         return;
 
-    curPos_ = curPos;
+    curPosFullSteps_ = curPos*fullStepsPerPos_;
+
+    // store the position in EEPROM
+    EEPROM.put(EEPROM_CUR_POS_ADDR, curPosFullSteps_);
+
+#ifdef ROTARY_ENCODER_ENABLED
     rotaryCounter_ = 0;
 
-    // store the position and counter in EEPROM
-    EEPROM.put(EEPROM_CUR_POS_ADDR, curPos_);
+    // store the counter in EEPROM
     EEPROM.put(EEPROM_ROTARY_ADDR,  rotaryCounter_);
+#endif
 }

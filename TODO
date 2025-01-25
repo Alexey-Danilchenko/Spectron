@@ -1,0 +1,14 @@
+TODO list:
+Firmwares:
+    12880 - add programmable calibration data, properties storage in EEPROM for all parameters
+    12666 - rewrite triggers, add programmable calibration data, properties storage in EEPROM for all parameters
+    Motor - add ability to microstep and calibrate (evaluate if it is needed)
+Software:
+    - Add full set of attributes to Xenon/LED classes.
+    - Finish session class
+    - Build the properties page for separate devices, login
+    - Implement saving/restoring properties
+    - Implement saving/restoring sessions
+    - Build the session parameters page and main form
+    - Build the session evaluation page and its form
+    

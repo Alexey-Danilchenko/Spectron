@@ -131,9 +131,9 @@ public:
         VAR_INT    = 2,
         VAR_DOUBLE = 3
     };
-    typedef QMap<QString, TVarType> TVarMap;
-    typedef QSet<QString>           TStringSet;
-    typedef QList<QString>          TStringList;
+    using TVarMap     = QMap<QString, TVarType>;
+    using TStringSet  = QSet<QString>;
+    using TStringList = QList<QString>;
 
     ParticleDevice();
     ParticleDevice(const QString& deviceID);

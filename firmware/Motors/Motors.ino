@@ -1,7 +1,7 @@
 /*
  *  Motors.ino - Spectron firmware motor control main file.
  *
- *  Copyright 2017 Alexey Danilchenko, Iliah Borg
+ *  Copyright 2017-2018 Alexey Danilchenko, Iliah Borg
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,12 @@
 
 SYSTEM_THREAD(ENABLED);
 
+#include <math.h>
+
+// Specify EEPROM base address for DRV8884 state saved - should
+// be before included header
+#define EEPROM_DRV8884_BASE_ADDR  0
+
 #include "DRV8884.h"
 
 #define NFAULT      D2
@@ -34,8 +40,10 @@ SYSTEM_THREAD(ENABLED);
 #define NSLEEP      A1
 #define PREF        A0
 
+#ifdef ROTARY_ENCODER_ENABLED
 #define DOWN_CLK    D0
 #define UP_CLK      D1
+#endif
 
 // Motor board DRV8884 driver - can be only one per application
 DRV8884 motor(NFAULT,
@@ -47,15 +55,28 @@ DRV8884 motor(NFAULT,
               STEP,
               ENABLE,
               NSLEEP,
-              PREF,
-              UP_CLK,
-              DOWN_CLK);
+              PREF
+#ifdef ROTARY_ENCODER_ENABLED
+              , UP_CLK
+              , DOWN_CLK
+#endif
+);
 
 // Board type identifier
 static String BOARD_TYPE = "SPEC2_MOTOR";
 
 // initialisation success
 bool initSuccess = true;
+
+// Particle variables for Motor state
+double motorCurPos = motor.getCurPos();
+int    motorMinPos = motor.getMinPos();
+int    motorMaxPos = motor.getMaxPos();
+int    motorFullStepsPerPos = motor.getFullStepsPerPos();
+int    motorSteppingMode = motor.getSteppingMode();
+int    motorDecayMode = motor.getDecayMode();
+int    motorStepsPerSec = motor.getRotationSpeed();
+int    motorTorqueMode = motor.getTorque();
 
 // early init
 void initDRV8884()
@@ -77,18 +98,18 @@ int drvMoveToPosition(String paramStr)
     if (motor.isRunning() || paramStr.length() == 0)
         return -1;
 
-    int movePositions = 0;
+    float movePositions = 0;
     bool forced = false;
 
     // parse the string
-    if (paramStr.equals("START"))
+    if (paramStr.equals("START") || paramStr.equals("MIN"))
         movePositions = motor.getMinPos() - motor.getCurPos();
-    else if (paramStr.equals("END"))
+    else if (paramStr.equals("END") || paramStr.equals("MAX"))
         movePositions = motor.getMaxPos() - motor.getCurPos();
     else
     {
         forced = paramStr.endsWith(",FORCE");
-        movePositions = paramStr.toInt();
+        movePositions = paramStr.toFloat();
         if (paramStr.charAt(0) != '+' && paramStr.charAt(0) != '-')
             // we have absolute movement - convert to relative
             movePositions -= motor.getCurPos();
@@ -102,7 +123,11 @@ int drvMoveToPosition(String paramStr)
     else
         motor.setDirection(DIR_FORWARD);
 
-    motor.movePositions(abs(movePositions), forced);
+    motor.movePositions(fabs(movePositions), forced);
+    
+    // update Particle variable
+    motorCurPos = motor.getCurPos();
+    motorStepsPerSec = motor.getRotationSpeed();
 
     return 0;
 }
@@ -114,6 +139,9 @@ int drvSetStepsPerPosition(String stepsPerPositionStr)
     
     int32_t stepsPerPosition = stepsPerPositionStr.toInt();
     motor.setStepsPerPosition(stepsPerPosition);
+
+    // update Particle variable
+    motorFullStepsPerPos = motor.getFullStepsPerPos();
 
     return 0;
 }
@@ -133,6 +161,10 @@ int drvSetLimits(String limitsStr)
 
     motor.setLimits(minPos, maxPos);
 
+    // update Particle variables
+    motorMinPos = motor.getMinPos();
+    motorMaxPos = motor.getMaxPos();
+    
     return 0;
 }
 
@@ -144,6 +176,9 @@ int drvResetPos(String newPosStr)
     int32_t newPos = newPosStr.toInt();
     motor.resetPosition(newPos);
 
+    // update Particle variable
+    motorCurPos = motor.getCurPos();
+    
     return 0;
 }
 
@@ -156,6 +191,9 @@ int drvSetDecay(String decayStr)
 
     motor.setDecayMode((decay_t)decay);
 
+    // update Particle variable
+    motorDecayMode = motor.getDecayMode();
+
     return 0;
 }
 
@@ -167,6 +205,9 @@ int drvSetSteppingMode(String stepModeStr)
         return -1;
 
     motor.setSteppingMode((step_t)stepMode);
+
+    // update Particle variable
+    motorSteppingMode = motor.getSteppingMode();
 
     return 0;
 }
@@ -181,6 +222,9 @@ int drvSetRotationSpeed(String stepsPerSecStr)
     if (motor.setRotationSpeed(stepsPerSec))
         return 0;
         
+    // update Particle variable
+    motorStepsPerSec = motor.getRotationSpeed();
+
     return -1;
 }
 
@@ -192,6 +236,9 @@ int drvSetTorqueMode(String torqueModeStr)
         return -1;
 
     motor.setTorque((torque_t)torqueMode);
+
+    // update Particle variable
+    motorTorqueMode = motor.getTorque();
 
     return 0;
 }
@@ -214,6 +261,19 @@ void setup()
     initSuccess = initSuccess && Particle.function("drvSetStpMd",  drvSetSteppingMode);
     initSuccess = initSuccess && Particle.function("drvSetRotSpd", drvSetRotationSpeed);
     initSuccess = initSuccess && Particle.function("drvSetTrqMod", drvSetTorqueMode);
+    
+    // register particle variables
+    Particle.variable("drvCurPos",    motorCurPos);
+    Particle.variable("drvFStpPrPos", motorFullStepsPerPos);
+    Particle.variable("drvMinPos",    motorMinPos);
+    Particle.variable("drvMaxPos",    motorMaxPos);
+    Particle.variable("drvStepMode",  motorSteppingMode);
+    Particle.variable("drvDecayMod",  motorDecayMode);
+    Particle.variable("drvStepsSec",  motorStepsPerSec);
+    Particle.variable("drvTrqMode",   motorTorqueMode);
+#ifdef ROTARY_ENCODER_ENABLED
+    Particle.variable("drvRotaryPos", motorRotaryCounter);
+#endif
 }
 
 // Main event loop - nothing to do here

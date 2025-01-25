@@ -85,7 +85,7 @@ It is used as a main light source for Spectron 2 project.
 
 # Pulsed Xenon Light Source
 
-[This firmware](Xenon) implements functionality for Spectron 2 Xenon Lightsource board using [Excelitas FX-116x series lamps](http://www.excelitas.com/Pages/Product/1100-Series-Family.aspx) on [Excelitas/Perkin-Elmer trigger module FYD‐1150‐B](http://www.excelitas.com/Downloads/DTS_1100Series_Trigger_Modules.pdf) driven by [Excelitas/Perkin-Elmer PS-11xx power supply](http://www.excelitas.com/Downloads/DTS_1100Series_Power_Supplies.pdf). 
+[This firmware](Xenon) implements functionality for Spectron 2 Xenon Lightsource board using [Excelitas FX-116x series lamps](https://www.excelitas.com/product/1100-series-short-arc-xenon-lamps) on [Excelitas/Perkin-Elmer trigger module FYD‐1150‐B](http://www.excelitas.com/Downloads/DTS_1100Series_Trigger_Modules.pdf) driven by [Excelitas/Perkin-Elmer PS-11xx power supply](http://www.excelitas.com/Downloads/DTS_1100Series_Power_Supplies.pdf). 
 
 The firmware allows controlling the output brigntness (average output power) of the flash lamp, or varying voltage or trigger rate directly (within allowed lamp  specifications), enabling/disabling Xenon Lamp output as well as doing timed exposures.
 

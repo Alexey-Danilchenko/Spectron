@@ -1,0 +1,15 @@
+Absolute Optical Calibrations Using a Simple Tungsten Bulb:Theory     - http://eprints.lancs.ac.uk/6731/1/inproc_288.pdf
+Absolute Optical Calibrations Using a Simple Tungsten Bulb:Experiment - http://eprints.lancs.ac.uk/6736/1/inproc_326.pdf
+
+200<T<400K
+rT0 = 0.00000125*T*T+0.0236*T-1.57
+1200<T<2500K
+rTf = 0.00000179*T*T+0.0264*T-3.25
+Input:
+    T0=<ambient in C>+273.15
+    RT0=lamp resistance at ambient
+    V=Voltage on the lamp
+    I=current through the lamp
+rT0 = 0.00000125*T0*T0+0.0236*T0-1.57
+rTf = (rT0*V)/(I*RT0) (>31.5)
+Tf = 5000*(sqrt(716*rTf+72023)-264)/179
